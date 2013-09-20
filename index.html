@@ -1,0 +1,63 @@
+
+<script src="script.js"></script>
+
+<script id="title" type="text/plain">Ray Tracer</script>
+
+<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
+
+<script id="description" type="text/plain"></script>
+
+<script id="shader" type="x-shader/x-fragment">
+
+float INFINITE_DISTANCE = 10000000000000000000000000000000000000.;   // TODO: probably a better way to do this because programmers are smart and include upper limit values in their libraries somehow?
+
+float fl = 1.0;  // focal length
+float ar = 1.0;  // aspect ratio: width / height
+
+vec4 eye_l = vec4(0., 0., fl, 1.);
+vec4 lookAt_l = vec4(0., 0., 0., 1.);
+vec4 eye_d = normalize(lookAt_l - eye_l);
+
+vec4 scanDir(float screenX, float screenY) {
+    return normalize(vec4((screenX - 0.5) * ar, 0.5 - screenY, -fl, 0.0));
+}
+
+// Returns t (for p = v + tw) if intersection exists, otherwise returns INFINITE_DISTANCE.
+// Pre-condition: dir is normalized.
+float intersectSphere(vec3 loc, vec3 dir, vec3 center, float radius) {
+    // dir must be normalized, so A = dir * dir will always be 1.
+    float B = 2.0 * dot(dir, (loc - center));
+    float C = dot(loc-center, loc-center) - radius * radius;
+
+    float d = B*B - 4.0*C;
+    if (d < 0.0) return INFINITE_DISTANCE; else return (-B - sqrt(d)) / 2.0;
+}
+
+float intersectAll(vec3 loc, vec3 dir) {
+    float t = INFINITE_DISTANCE;
+
+    // add objects here
+    t = min( t, intersectSphere(loc, dir, vec3(0.0, 0.0, 0.0), 0.3) );
+
+    return t;
+}
+
+void main(void) {
+
+    float screenX = vUV.x;
+    float screenY = vUV.y;
+    float time = uTime;
+
+
+    vec4 scan_d = scanDir(screenX, screenY);
+    float dist = intersectAll(eye_l.xyz, scan_d.xyz);
+
+    float c = 1. - dist;
+
+    vec3 color = vec3(c, c, c);
+
+    gl_FragColor = vec4(color, 1.0);
+}
+</script>
+
+<script>start()</script>

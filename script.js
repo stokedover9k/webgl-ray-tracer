@@ -148,6 +148,15 @@ function square() { return _shape ( [
         gl.uniform1f(shaderProgram.MousePressedUniform, isMousePressed ? 1.0 : 0.0);
         gl.uniform1f(shaderProgram.TimeUniform, time); 
 
+        //XXX
+        var spheres = 
+        //  x    y    z    radius
+        [  0.0, 0.0, 0.0,   0.2,
+           0.3, 0.1, -0.1,   0.3  ];
+        shaderProgram.spheresUniform = gl.getUniformLocation(shaderProgram, "spheres");
+        gl.uniform4fv(shaderProgram.spheresUniform, spheres);
+
+
 
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(shape.vertices), gl.STATIC_DRAW);
 

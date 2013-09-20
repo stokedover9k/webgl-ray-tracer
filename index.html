@@ -11,6 +11,9 @@
 
 float INFINITE_DISTANCE = 10000000000000000000000000000000000000.;   // TODO: probably a better way to do this because programmers are smart and include upper limit values in their libraries somehow?
 
+const int NUM_SPHERES = 2;
+uniform vec4 spheres[NUM_SPHERES];
+
 float fl = 1.0;  // focal length
 float ar = 1.0;  // aspect ratio: width / height
 
@@ -19,7 +22,7 @@ vec4 lookAt_l = vec4(0., 0., 0., 1.);
 vec4 eye_d = normalize(lookAt_l - eye_l);
 
 vec4 scanDir(float screenX, float screenY) {
-    return normalize(vec4((screenX - 0.5) * ar, 0.5 - screenY, -fl, 0.0));
+    return normalize(vec4((screenX - 0.5) * ar, screenY - 0.5, -fl, 0.0));
 }
 
 // Returns t (for p = v + tw) if intersection exists, otherwise returns INFINITE_DISTANCE.
@@ -37,7 +40,11 @@ float intersectAll(vec3 loc, vec3 dir) {
     float t = INFINITE_DISTANCE;
 
     // add objects here
-    t = min( t, intersectSphere(loc, dir, vec3(0.0, 0.0, 0.0), 0.3) );
+    for( int i = 0; i < NUM_SPHERES; ++i ) {
+        vec3  c = spheres[i].xyz;
+        float r = spheres[i].w;
+        t = min( t, intersectSphere(loc, dir, c, r) );
+    }
 
     return t;
 }
@@ -52,9 +59,10 @@ void main(void) {
     vec4 scan_d = scanDir(screenX, screenY);
     float dist = intersectAll(eye_l.xyz, scan_d.xyz);
 
-    float c = 1. - dist;
+    float c = clamp(1. - dist, 0., 1.);
 
-    vec3 color = vec3(c, c, c);
+    vec3 color = vec3(c, c, screenY);
+    if( uMousePressed == 1.0 ) color = vec3(1., 1., 1.) - color;
 
     gl_FragColor = vec4(color, 1.0);
 }

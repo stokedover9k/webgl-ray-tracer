@@ -51,8 +51,12 @@ vec3  surface_l, surface1_l;
 vec3  surface_n, surface1_n;
 vec3  surface_c, surface1_c;
 
-void saveSurface1() { 
-    surface1_t = surface_t; surface1_l = surface_l; surface1_n = surface_n; surface1_c = surface_c; }
+void saveSurface1() {
+    surface1_t = surface_t;
+    surface1_l = surface_l;
+    surface1_n = surface_n;
+    surface1_c = surface_c;
+}
 
 // sets surface_t, surface_l, surface_n, surface_c
 float intersectAll(vec3 loc, vec3 dir) {
@@ -83,6 +87,33 @@ vec3 fixIntersectionPoint(vec3 loc, vec3 dir) {
     return loc + 0.0001 * dir;
 }
 
+vec3 computeDiffusedColor(vec3 surfaceLoc, vec3 surfaceNormal, vec3 surfaceCol) {
+    float diffusedColorIntensity = 0.;
+    
+    for (int idx = 0; idx < NUM_INFINITE_LIGHTS; ++idx) {
+        
+        vec3 lightDir = normalize(infiniteLights[idx].xyz);
+        if( dot(lightDir, surfaceNormal) < 0.0 ) { continue; }
+
+        vec3 s = fixIntersectionPoint(surfaceLoc, lightDir);
+        if( intersectAll(s, lightDir) == INFINITE_DISTANCE ) {
+            float lightIntensity = infiniteLights[idx].w;
+            diffusedColorIntensity += lightIntensity * dot( surfaceNormal, lightDir );
+        }
+    };
+    
+    return surfaceCol * diffusedColorIntensity;
+}
+
+vec3 computeColor(vec3 surfaceLoc, vec3 surfaceNormal, vec3 surfaceCol) {
+    vec3 ambientColor  = surfaceCol;
+    vec3 diffusedColor = computeDiffusedColor(surfaceLoc, surfaceNormal, surfaceCol);
+
+    return
+    AMBIENT_REFLECTANCE         * ambientColor +
+    (1.0 - AMBIENT_REFLECTANCE) * diffusedColor;
+}
+
 void main(void) {
 
     float screenX = vUV.x;
@@ -93,25 +124,7 @@ void main(void) {
 
     if( intersectAll(eye_l.xyz, scan_d.xyz) != INFINITE_DISTANCE ) {
         saveSurface1();
-
-        // diffused light
-        float diffusedColorIntensity = 0.;
-        for (int idx = NUM_INFINITE_LIGHTS - 1; idx >= 0; idx--) {
-            vec3 light_d = normalize(infiniteLights[idx].xyz);
-
-            if( dot(light_d, surface1_n) > 0. ) {
-                vec3 s = fixIntersectionPoint(surface1_l, light_d);
-
-                if( intersectAll(s, light_d) == INFINITE_DISTANCE ) {
-                    float lightIntensity = infiniteLights[idx].w;
-                    diffusedColorIntensity += lightIntensity * dot( surface1_n, light_d );
-                }
-            }
-        };
-
-        color = surface1_c * 
-        (AMBIENT_REFLECTANCE + 
-            diffusedColorIntensity * (1. - AMBIENT_REFLECTANCE));
+        color = computeColor(surface1_l, surface1_n, surface1_c);
     }
     else { color = vec3(0., 0., screenY); }
 

@@ -173,7 +173,7 @@ function square() { return _shape ( [
 
         var infiniteLights = 
 //          x     y     z  brightness
-        [ -1.0,  1.0, -0.2, 0.7,
+        [ -1.2,  1.0, -0.2, 0.7,
            0.5,  2.0, -0.9, 0.9 ];
         gl.uniform4fv(gl.getUniformLocation(shaderProgram, "infiniteLights"), infiniteLights);
 

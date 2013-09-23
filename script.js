@@ -157,24 +157,24 @@ function square() { return _shape ( [
           -0.15, 0.3,  0.1,   0.05 ];
 
         var sphereCols = 
-        //  r    g    b
-        [  0.5, 0.5, 0.5,
-           0.9, 0.1, 0.1,
-           0.1, 0.2, 0.9 ];
+        //  r    g    b   shiny
+        [  0.5, 0.5, 0.5, 0.1,
+           0.9, 0.1, 0.1, 1.5,
+           0.1, 0.2, 0.9, 3.0 ];
 
         shaderProgram.sphereLocsUniform = gl.getUniformLocation(shaderProgram, "sphereLocs");
         gl.uniform4fv(shaderProgram.sphereLocsUniform, sphereLocs);
 
         shaderProgram.sphereColsUniform = gl.getUniformLocation(shaderProgram, "sphereCols");
-        gl.uniform3fv(shaderProgram.sphereColsUniform, sphereCols);
+        gl.uniform4fv(shaderProgram.sphereColsUniform, sphereCols);
 
         var AMBIENT_REFLECTANCE = 0.05;
         gl.uniform1f(gl.getUniformLocation(shaderProgram, "AMBIENT_REFLECTANCE"), AMBIENT_REFLECTANCE);
 
         var infiniteLights = 
 //          x     y     z  brightness
-        [ -1.2,  1.0, -0.2, 0.7,
-           0.5,  2.0, -0.9, 0.9 ];
+        [ -1.2,  1.0,  0.0, 0.7,
+           0.5,  2.0,  0.9, 0.9 ];
         gl.uniform4fv(gl.getUniformLocation(shaderProgram, "infiniteLights"), infiniteLights);
 
 

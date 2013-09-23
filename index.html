@@ -20,7 +20,7 @@ uniform vec4 infiniteLights[NUM_INFINITE_LIGHTS];
 //vec3 infiniteLight_d = normalize(vec3(-1., 1., -0.2));
 
 uniform vec4 sphereLocs[NUM_SPHERES];
-uniform vec3 sphereCols[NUM_SPHERES];
+uniform vec4 sphereCols[NUM_SPHERES];
 
 uniform float AMBIENT_REFLECTANCE;
 
@@ -49,7 +49,7 @@ float intersectSphere(vec3 loc, vec3 dir, vec3 center, float radius) {
 float surface_t, surface1_t;
 vec3  surface_l, surface1_l;
 vec3  surface_n, surface1_n;
-vec3  surface_c, surface1_c;
+vec4  surface_c, surface1_c;
 
 void saveSurface1() {
     surface1_t = surface_t;
@@ -87,8 +87,9 @@ vec3 fixIntersectionPoint(vec3 loc, vec3 dir) {
     return loc + 0.0001 * dir;
 }
 
-vec3 computeDiffusedColor(vec3 surfaceLoc, vec3 surfaceNormal, vec3 surfaceCol) {
+vec3 computeDiffusedColor(vec3 surfaceLoc, vec3 surfaceNormal, vec4 surfaceCol) {
     float diffusedColorIntensity = 0.;
+    float shininess = surfaceCol.w;
     
     for (int idx = 0; idx < NUM_INFINITE_LIGHTS; ++idx) {
         
@@ -98,15 +99,15 @@ vec3 computeDiffusedColor(vec3 surfaceLoc, vec3 surfaceNormal, vec3 surfaceCol) 
         vec3 s = fixIntersectionPoint(surfaceLoc, lightDir);
         if( intersectAll(s, lightDir) == INFINITE_DISTANCE ) {
             float lightIntensity = infiniteLights[idx].w;
-            diffusedColorIntensity += lightIntensity * dot( surfaceNormal, lightDir );
+            diffusedColorIntensity += pow(lightIntensity, shininess) * dot( surfaceNormal, lightDir );
         }
     };
     
-    return surfaceCol * diffusedColorIntensity;
+    return surfaceCol.xyz * diffusedColorIntensity;
 }
 
-vec3 computeColor(vec3 surfaceLoc, vec3 surfaceNormal, vec3 surfaceCol) {
-    vec3 ambientColor  = surfaceCol;
+vec3 computeColor(vec3 surfaceLoc, vec3 surfaceNormal, vec4 surfaceCol) {
+    vec3 ambientColor  = surfaceCol.xyz;
     vec3 diffusedColor = computeDiffusedColor(surfaceLoc, surfaceNormal, surfaceCol);
 
     return
@@ -119,14 +120,13 @@ void main(void) {
     float screenX = vUV.x;
     float screenY = vUV.y;
     float time = uTime;
-    vec3 color = vec3(0., 0., 0.);
+    vec3 color = vec3(0., 0., screenY);
     vec4 scan_d = scanDir(screenX, screenY);
 
     if( intersectAll(eye_l.xyz, scan_d.xyz) != INFINITE_DISTANCE ) {
         saveSurface1();
         color = computeColor(surface1_l, surface1_n, surface1_c);
     }
-    else { color = vec3(0., 0., screenY); }
 
     if( uMousePressed == 1.0 ) color = vec3(1., 1., 1.) - color;
     gl_FragColor = vec4(color, 1.0);

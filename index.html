@@ -3,16 +3,26 @@
 
 <script id="title" type="text/plain">Ray Tracer</script>
 
-<!! REPLACE THE TEXT BELOW WITH A BRIEF DESCRIPTION OF YOUR SHADER>
-
-<script id="description" type="text/plain"></script>
+<script id="description" type="text/plain">
+Two lights, two spheres, blah-blah-blah...
+</script>
 
 <script id="shader" type="x-shader/x-fragment">
 
 float INFINITE_DISTANCE = 10000000000000000000000000000000000000.;   // TODO: probably a better way to do this because programmers are smart and include upper limit values in their libraries somehow?
 
-const int NUM_SPHERES = 2;
-uniform vec4 spheres[NUM_SPHERES];
+const int NUM_SPHERES = 3;
+const int NUM_INFINITE_LIGHTS = 2;
+
+
+
+uniform vec4 infiniteLights[NUM_INFINITE_LIGHTS];
+//vec3 infiniteLight_d = normalize(vec3(-1., 1., -0.2));
+
+uniform vec4 sphereLocs[NUM_SPHERES];
+uniform vec3 sphereCols[NUM_SPHERES];
+
+uniform float AMBIENT_REFLECTANCE;
 
 float fl = 1.0;  // focal length
 float ar = 1.0;  // aspect ratio: width / height
@@ -36,17 +46,41 @@ float intersectSphere(vec3 loc, vec3 dir, vec3 center, float radius) {
     if (d < 0.0) return INFINITE_DISTANCE; else return (-B - sqrt(d)) / 2.0;
 }
 
+float surface_t, surface1_t;
+vec3  surface_l, surface1_l;
+vec3  surface_n, surface1_n;
+vec3  surface_c, surface1_c;
+
+void saveSurface1() { 
+    surface1_t = surface_t; surface1_l = surface_l; surface1_n = surface_n; surface1_c = surface_c; }
+
+// sets surface_t, surface_l, surface_n, surface_c
 float intersectAll(vec3 loc, vec3 dir) {
-    float t = INFINITE_DISTANCE;
+    surface_t = INFINITE_DISTANCE;
 
     // add objects here
     for( int i = 0; i < NUM_SPHERES; ++i ) {
-        vec3  c = spheres[i].xyz;
-        float r = spheres[i].w;
-        t = min( t, intersectSphere(loc, dir, c, r) );
+        vec3  c = sphereLocs[i].xyz;
+        float r = sphereLocs[i].w;
+
+        float tPrime = intersectSphere(loc, dir, c, r);
+        if( tPrime < surface_t && tPrime > 0.) {
+            surface_t = tPrime;
+            surface_l = loc + surface_t * dir;
+            surface_n = normalize(surface_l - c);
+            surface_c = sphereCols[i];
+        }
     }
 
-    return t;
+    return surface_t;
+}
+
+vec3 reflectionDir(vec3 incoming, vec3 normal) {
+    return 2. * dot(-incoming, normal) * normal + incoming;
+}
+
+vec3 fixIntersectionPoint(vec3 loc, vec3 dir) {
+    return loc + 0.0001 * dir;
 }
 
 void main(void) {
@@ -54,16 +88,34 @@ void main(void) {
     float screenX = vUV.x;
     float screenY = vUV.y;
     float time = uTime;
-
-
+    vec3 color = vec3(0., 0., 0.);
     vec4 scan_d = scanDir(screenX, screenY);
-    float dist = intersectAll(eye_l.xyz, scan_d.xyz);
 
-    float c = clamp(1. - dist, 0., 1.);
+    if( intersectAll(eye_l.xyz, scan_d.xyz) != INFINITE_DISTANCE ) {
+        saveSurface1();
 
-    vec3 color = vec3(c, c, screenY);
+        // diffused light
+        float diffusedColorIntensity = 0.;
+        for (int idx = NUM_INFINITE_LIGHTS - 1; idx >= 0; idx--) {
+            vec3 light_d = normalize(infiniteLights[idx].xyz);
+
+            if( dot(light_d, surface1_n) > 0. ) {
+                vec3 s = fixIntersectionPoint(surface1_l, light_d);
+
+                if( intersectAll(s, light_d) == INFINITE_DISTANCE ) {
+                    float lightIntensity = infiniteLights[idx].w;
+                    diffusedColorIntensity += lightIntensity * dot( surface1_n, light_d );
+                }
+            }
+        };
+
+        color = surface1_c * 
+        (AMBIENT_REFLECTANCE + 
+            diffusedColorIntensity * (1. - AMBIENT_REFLECTANCE));
+    }
+    else { color = vec3(0., 0., screenY); }
+
     if( uMousePressed == 1.0 ) color = vec3(1., 1., 1.) - color;
-
     gl_FragColor = vec4(color, 1.0);
 }
 </script>

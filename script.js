@@ -149,13 +149,33 @@ function square() { return _shape ( [
         gl.uniform1f(shaderProgram.TimeUniform, time); 
 
         //XXX
-        var spheres = 
-        //  x    y    z    radius
-        [  0.0, 0.0, 0.0,   0.2,
-           0.3, 0.1, -0.1,   0.3  ];
-        shaderProgram.spheresUniform = gl.getUniformLocation(shaderProgram, "spheres");
-        gl.uniform4fv(shaderProgram.spheresUniform, spheres);
 
+        var sphereLocs = 
+        //  x     y     z    radius
+        [  0.0,  0.0,  0.0,   0.2,
+           0.3,  0.1, -0.1,   0.3,
+          -0.15, 0.3,  0.1,   0.05 ];
+
+        var sphereCols = 
+        //  r    g    b
+        [  0.5, 0.5, 0.5,
+           0.9, 0.1, 0.1,
+           0.1, 0.2, 0.9 ];
+
+        shaderProgram.sphereLocsUniform = gl.getUniformLocation(shaderProgram, "sphereLocs");
+        gl.uniform4fv(shaderProgram.sphereLocsUniform, sphereLocs);
+
+        shaderProgram.sphereColsUniform = gl.getUniformLocation(shaderProgram, "sphereCols");
+        gl.uniform3fv(shaderProgram.sphereColsUniform, sphereCols);
+
+        var AMBIENT_REFLECTANCE = 0.05;
+        gl.uniform1f(gl.getUniformLocation(shaderProgram, "AMBIENT_REFLECTANCE"), AMBIENT_REFLECTANCE);
+
+        var infiniteLights = 
+//          x     y     z  brightness
+        [ -1.0,  1.0, -0.2, 0.7,
+           0.5,  2.0, -0.9, 0.9 ];
+        gl.uniform4fv(gl.getUniformLocation(shaderProgram, "infiniteLights"), infiniteLights);
 
 
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(shape.vertices), gl.STATIC_DRAW);

@@ -4,7 +4,7 @@
 <script id="title" type="text/plain">Ray Tracer</script>
 
 <script id="description" type="text/plain">
-Two lights, three spheres, blah-blah-blah...
+Two lights, three spheres, three level deep reflection (1 original ray + 3 reflected)
 </script>
 
 <script id="shader" type="x-shader/x-fragment">
@@ -47,18 +47,26 @@ float intersectSphere(vec3 loc, vec3 dir, vec3 center, float radius) {
     if (d < 0.0) return INFINITE_DISTANCE; else return (-B - sqrt(d)) / 2.0;
 }
 
-float surface_t, surface1_t;   // distance t
-vec3  surface_l, surface1_l;   // loc
-vec3  surface_n, surface1_n;   // normal
-vec3  surface_c, surface1_c;   // color
-vec3  surface_p, surface1_p;   // color properties (shiny, metallic, tranparent)
+float surface_t, surface_t_backup;   // distance t
+vec3  surface_l, surface_l_backup;   // loc
+vec3  surface_n, surface_n_backup;   // normal
+vec3  surface_c, surface_c_backup;   // color
+vec3  surface_p, surface_p_backup;   // color properties (shiny, metallic, tranparent)
 
-void saveSurface1() {
-    surface1_t = surface_t;
-    surface1_l = surface_l;
-    surface1_n = surface_n;
-    surface1_c = surface_c;
-    surface1_p = surface_p;
+void stashSurface() {
+    surface_t_backup = surface_t;
+    surface_l_backup = surface_l;
+    surface_n_backup = surface_n;
+    surface_c_backup = surface_c;
+    surface_p_backup = surface_p;
+}
+
+void popSurfaceStash() {
+    surface_t = surface_t_backup;
+    surface_l = surface_l_backup;
+    surface_n = surface_n_backup;
+    surface_c = surface_c_backup;
+    surface_p = surface_p_backup;
 }
 
 // sets surface_t, surface_l, surface_n, surface_c
@@ -83,8 +91,15 @@ float intersectAll(vec3 loc, vec3 dir) {
     return surface_t;
 }
 
+float intersectAllWithBackup(vec3 loc, vec3 dir) {
+    stashSurface();
+    float ret = intersectAll(loc, dir);
+    popSurfaceStash();
+    return ret;
+}
+
 vec3 fixIntersectionPoint(vec3 loc, vec3 dir) {
-    return loc + 0.0001 * dir;
+    return loc + 0.00001 * dir;
 }
 
 vec3 computeDirectedLights( vec3 surfaceLoc,
@@ -108,7 +123,7 @@ vec3 computeDirectedLights( vec3 surfaceLoc,
 
         if( dot(lightDir, surfaceNormal) > 0.0 ) {
             vec3 s = fixIntersectionPoint(surfaceLoc, lightDir);
-            if( intersectAll(s, lightDir) != INFINITE_DISTANCE ) { continue; }
+            if( intersectAllWithBackup(s, lightDir) != INFINITE_DISTANCE ) { continue; }
 
             // diffused light
             cDiffused = lDiffuse * dot( surfaceNormal, lightDir );
@@ -138,34 +153,51 @@ vec3 computeColor( vec3 surfaceLoc,
     (1.0 - AMBIENT_REFLECTANCE) * diffusedColor;
 }
 
+// returns color and saves intersection info in surface_... variables
+vec3 simulateRay(vec3 loc, vec3 dir) {
+    vec3 color = vec3(0., 0., 0.);
+
+    if( intersectAll(loc, dir) != INFINITE_DISTANCE ) {
+        vec3 reflectionDir = reflect(dir, surface_n);
+        color = computeColor( surface_l, surface_n, reflectionDir, surface_c, surface_p );
+    }
+
+    return color;
+}
+
 void main(void) {
 
     float screenX = vUV.x;
     float screenY = vUV.y;
     float time = uTime;
-    vec3 color = vec3(0., 0., screenY / 2.);
-    vec4 scan_d = scanDir(screenX, screenY);
+    vec3 color = vec3(0., 0., 0.);
+    vec3 rayDir = scanDir(screenX, screenY).xyz;
 
-    if( intersectAll(eye_l.xyz, scan_d.xyz) != INFINITE_DISTANCE ) {
-        saveSurface1();
-        
-        vec3 reflectedDir = reflect(scan_d.xyz, surface1_n);
-        
-        color = computeColor(surface1_l, surface1_n, reflectedDir, surface1_c.xyz, surface1_p);
+    float reflectionScaleFactor = 1.0;
 
-        // compute reflection
-        
-        vec3 reflectDir = reflect(scan_d.xyz, surface1_n);
-        vec3 fixedSurfaceLoc = fixIntersectionPoint(surface1_l, reflectDir);
-        if( intersectAll(fixedSurfaceLoc, reflectDir) != INFINITE_DISTANCE ) {
-            vec3 reflectCol = computeColor(surface_l, surface_n, reflect(reflectDir, surface_n), surface_c.xyz, surface_p);
+    color = simulateRay(eye_l.xyz, rayDir);
 
-            color += surface1_p.y * reflectCol;
-        }
-        
+    // reflection ray depth 1
+    if( surface_t != INFINITE_DISTANCE ) {
+        reflectionScaleFactor *= surface_p.y;
+        rayDir = reflect(rayDir, surface_n);
+        color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(surface_l, rayDir), rayDir);
     }
 
-    if( uMousePressed == 1.0 ) color = vec3(1., 1., 1.) - color;
+    // reflection ray depth 2
+    if( surface_t != INFINITE_DISTANCE ) {
+        reflectionScaleFactor *= surface_p.y;
+        rayDir = reflect(rayDir, surface_n);
+        color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(surface_l, rayDir), rayDir);
+    }
+
+    // reflection ray depth 3
+    if( surface_t != INFINITE_DISTANCE ) {
+        reflectionScaleFactor *= surface_p.y;
+        rayDir = reflect(rayDir, surface_n);
+        color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(surface_l, rayDir), rayDir);
+    }
+
     gl_FragColor = vec4(color, 1.0);
 }
 </script>

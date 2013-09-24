@@ -149,12 +149,18 @@ function square() { return _shape ( [
         gl.uniform1f(shaderProgram.TimeUniform, time); 
 
         //XXX
-
+        /*
         var sphereLocs = 
         //  x     y     z    radius
         [  0.0,  0.0,  0.0,   0.2,
            0.3,  0.1, -0.1,   0.3,
           -0.15, 0.3,  0.1,   0.05 ];
+        */
+        var sphereLocs = 
+        //  x     y     z    radius
+        [  2.1,  0.0, -2.0,   2.0,
+          -1.6,  0.0, -3.0,   1.7,
+          -0.15, 0.5, -0.95,   0.05 ];
 
         var sphereCols = 
         //  r    g    b
@@ -164,7 +170,7 @@ function square() { return _shape ( [
 
         var sphereColProperties = 
         // shiny   metallic   transparency
-        [   5.0,      0.4,       0.0,
+        [   5.0,      0.3,       0.0,
            15.0,      0.7,       0.7,
             7.0,      0.8,       0.2 ];
 

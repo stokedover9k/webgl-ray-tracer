@@ -4,7 +4,7 @@
 <script id="title" type="text/plain">Ray Tracer</script>
 
 <script id="description" type="text/plain">
-Two lights, two spheres, blah-blah-blah...
+Two lights, three spheres, blah-blah-blah...
 </script>
 
 <script id="shader" type="x-shader/x-fragment">
@@ -151,17 +151,18 @@ void main(void) {
         
         vec3 reflectedDir = reflect(scan_d.xyz, surface1_n);
         
-        // last arg is "shiny"
         color = computeColor(surface1_l, surface1_n, reflectedDir, surface1_c.xyz, surface1_p);
 
         // compute reflection
-        /*
-        vec3 relfectDir = reflect(scan_d.xyz, surface1_n);
-        vec3 fixedSurfaceLoc = fixIntersectionPoint(surface1_l, relfectDir);
+        
+        vec3 reflectDir = reflect(scan_d.xyz, surface1_n);
+        vec3 fixedSurfaceLoc = fixIntersectionPoint(surface1_l, reflectDir);
         if( intersectAll(fixedSurfaceLoc, reflectDir) != INFINITE_DISTANCE ) {
-            vec3 reflectCol = computeColor(surface_l, surface_n, surface_c.xyz, surface_p);
+            vec3 reflectCol = computeColor(surface_l, surface_n, reflect(reflectDir, surface_n), surface_c.xyz, surface_p);
+
+            color += surface1_p.y * reflectCol;
         }
-        */
+        
     }
 
     if( uMousePressed == 1.0 ) color = vec3(1., 1., 1.) - color;

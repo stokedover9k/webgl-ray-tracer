@@ -16,18 +16,28 @@ vec3 BLUE = vec3(0., 0., 1.0);
 
 float INFINITE_DISTANCE = 10000000000000000000000000000000000000.;   // TODO: probably a better way to do this because programmers are smart and include upper limit values in their libraries somehow?
 
-const int NUM_SPHERES = 1;
+const int NUM_SPHERES = 2;
 uniform mat4 trsSpheres[NUM_SPHERES];
 uniform mat4 trsInvSpheres[NUM_SPHERES];
 uniform vec3 colSpheres[NUM_SPHERES];
 uniform vec3 colPropSpheres[NUM_SPHERES];
 
+const int NUM_PLANES = 1;
+uniform mat4 trsPlanes[NUM_PLANES];
+uniform mat4 trsInvPlanes[NUM_PLANES];
+uniform vec3 colPlanes[NUM_PLANES];
+uniform vec3 colPropPlanes[NUM_PLANES];
+
+const int NUM_CUBES = 1;
+uniform mat4 trsCubes[NUM_CUBES];
+uniform mat4 trsInvCubes[NUM_CUBES];
+uniform vec3 colCubes[NUM_CUBES];
+uniform vec3 colPropCubes[NUM_CUBES];
+
+uniform vec4 UNIT_CUBE_FACES[6];
+
 const int NUM_INFINITE_LIGHTS = 2;
-
-
-
 uniform vec4 infiniteLights[NUM_INFINITE_LIGHTS];
-
 uniform float AMBIENT_REFLECTANCE;
 
 float fl = 1.0;  // focal length
@@ -106,17 +116,13 @@ float intersectAll(vec4 loc, vec4 dir) {
     return surface_t;
 }
 */
-/*
-float intersectAllWithBackup(vec4 loc, vec4 dir) {
-    stashSurface();
-    float ret = intersectAll(loc, dir);
-    popSurfaceStash();
-    return ret;
-}
+
+
 
 vec3 fixIntersectionPoint(vec3 loc, vec3 dir) {
-    return loc + 0.00001 * dir;
+    return loc + 0.0005 * dir;
 }
+/*
 
 vec3 computeDirectedLights( vec3 surfaceLoc,
                             vec3 surfaceNormal,
@@ -169,6 +175,7 @@ vec3 computeColor( vec3 surfaceLoc,
 }
 */
 
+
 // returns color and saves intersection info in surface_... variables
 /*
 vec3 simulateRay(vec4 loc, vec4 dir) {
@@ -200,22 +207,104 @@ void intersectAllSpheres(vec4 loc, vec4 dir) {
         float C = dot(v, v) - 1.0;
         float d = B*B - 4.0*C;
 
-        if( d < 0.0 ) continue;  // missed it
+        if( d < 0.0 ) continue;                // missed it
 
         float t = (-B - sqrt(d)) / 2.0;        // t in sphere's coordinates
         if( t <= 0.0 ) continue;               // behind us
 
-        vec3 p = v + t * w;  // intersection point in sphere's coordinates
-        res_intersectSphere_point  = trsSpheres[i] * vec4(p, 1.);
-        res_intersectSphere_normal = trsSpheres[i] * vec4(p, 0.);
-
-        t = length(res_intersectSphere_point - loc);  // t in real coordinates
+        vec3 p = v + t * w;                    // intersection point in sphere's coordinates
+        vec3 norm = normalize(trsSpheres[i] * vec4(p, 0.)).xyz;
+        p = (trsSpheres[i] * vec4(p, 1.)).xyz; // intersection point in world coordinates
+        t = length(p - loc.xyz);
 
         if( t < surface_t ) {
             surface_t = t;
-            surface_p = res_intersectSphere_point.xyz;
-            surface_n = res_intersectSphere_normal.xyz;
+            surface_l = p;
+            surface_n = norm;
             surface_c = colSpheres[i];
+            surface_p = colPropSpheres[i];
+        }
+    }
+}
+
+void intersectAllPlanes(vec4 loc, vec4 dir) {
+
+    for (int i = 0; i < NUM_PLANES; i++) {
+        vec4 v = trsInvPlanes[i] * loc;
+        vec4 w = trsInvPlanes[i] * dir;
+
+        vec4 l = vec4(0., 1., 0., 1.);  // plane
+
+        float t = dot(l, w);
+        if( t == 0. ) continue;    // parallel to the plane
+        if( t > 0. )  continue;    // plane is behind us
+
+        t = - dot(l, v) / t;
+        vec4 p = v + t * w;        // intersection point in plane's coordinates
+        p = trsPlanes[i] * p;      // intersection point in world coordinates
+        t = length(p - loc);       // t in world coordinates
+
+        if( t < surface_t ) {
+            surface_t = t;
+            surface_l = p.xyz;
+            surface_n = (trsPlanes[i] * vec4(0., 1., 0., 0.)).xyz;
+            surface_c = colPlanes[i];
+            surface_p = colPropPlanes[i];
+        }
+    };
+}
+
+void intersectAllCubes(vec4 loc, vec4 dir) {
+
+    for (int i = 0; i < NUM_CUBES; i++) {
+
+        vec4 v = trsInvCubes[i] * loc;
+        vec4 w = trsInvCubes[i] * dir;
+
+        float maxEnterT = -INFINITE_DISTANCE;
+        float minExitT = INFINITE_DISTANCE;
+        bool outside = false;
+
+        vec4 enterPlane;
+        vec4 enterPlaneNormal;
+
+        for (int i = 0; i < 6; i++) {   // for each face...
+            if( outside ) break;
+            float lw = dot(UNIT_CUBE_FACES[i], w);
+            float lv = dot(UNIT_CUBE_FACES[i], v);
+            
+            if( lw == 0. ) {
+                if( lv > 0. ) { outside = true; continue; }  // ray is outside the half-space
+                else continue;                               // ray is inside but parallel to half-space
+            }
+
+            if( lw < 0. ) {
+                float t = - lv / lw;
+                if( t > maxEnterT ) {
+                    maxEnterT = t;
+                    enterPlane = UNIT_CUBE_FACES[i];
+                    enterPlaneNormal = vec4(UNIT_CUBE_FACES[i].xyz, 0.);
+                }
+            }
+            if( lw > 0. ) {
+                float t = - lv / lw;
+                if( t < minExitT ) {
+                    minExitT = t;
+                }
+            }
+        }
+
+        if( maxEnterT > minExitT )  continue;  // missed it
+
+        vec4 p = v + maxEnterT * w;    // intersection in cube's coordinates
+        p = trsCubes[i] * p;           // intersection in world coordinates
+        float t = length(loc - p);
+        if( t < surface_t ) {
+            surface_t = t;
+            surface_l = p.xyz;
+            surface_n = (trsCubes[i] * enterPlaneNormal).xyz;
+            surface_c = colCubes[i];
+            surface_p = colPropCubes[i];
         }
     }
 }
@@ -223,9 +312,68 @@ void intersectAllSpheres(vec4 loc, vec4 dir) {
 float intersectAll(vec4 loc, vec4 dir) {
     surface_t = INFINITE_DISTANCE;
 
+    // each of the intersectAll* functions is responsible for setting:
+    // - surface_t
+    // - surface_l
+    // - surface_n
+    // - surface_c
+    // - surface_p
     intersectAllSpheres(loc, dir);
+    intersectAllPlanes(loc, dir);
+    intersectAllCubes(loc, dir);
 
     return surface_t;
+}
+
+float intersectAllWithBackup(vec4 loc, vec4 dir) {
+    stashSurface();
+    float ret = intersectAll(loc, dir);
+    popSurfaceStash();
+    return ret;
+}
+
+vec3 computeDirectedLight(vec3 reflectedDir) {
+    float shiny    = surface_p.x;
+    float metallic = surface_p.y;
+
+    vec3 directedColor = BLACK;
+
+    for (int idx = 0; idx < NUM_INFINITE_LIGHTS; ++idx) {
+        
+        vec3 lightDir = normalize(infiniteLights[idx].xyz);
+        vec3 cDiffused = BLACK;
+        
+        vec3 lDiffuse = vec3(0.7, 0.7, 0.7);   //TODO: color of the light
+        vec3 lSpecular = metallic * surface_c + (1. - metallic) * lDiffuse;
+
+        if( dot(lightDir, surface_n) > 0. ) {
+            vec4 s = vec4(fixIntersectionPoint(surface_l, lightDir), 1.0);
+            if( intersectAllWithBackup(s, vec4(lightDir, 0.0)) != INFINITE_DISTANCE ) { continue; }
+
+            // diffused light
+            cDiffused = lDiffuse * dot( surface_n, lightDir );
+        }
+
+        // specular light
+        vec3 cSpecular = lSpecular * pow(max(0., dot( lightDir, reflectedDir )), shiny);
+
+        //                    intensity        *       sum_of_colors
+        directedColor += infiniteLights[idx].w * (cDiffused + cSpecular);
+    }
+
+    return directedColor;
+}
+
+vec3 computeColor(vec3 reflectedDir) {
+    if( surface_t == INFINITE_DISTANCE )
+        return BLACK;
+
+    vec3 ambientColor  = surface_c;
+    vec3 directedColor = computeDirectedLight(reflectedDir);
+
+    return
+    AMBIENT_REFLECTANCE         * ambientColor +
+    (1.0 - AMBIENT_REFLECTANCE) * directedColor;
 }
 
 vec3 simulateRay(vec4 loc, vec4 dir) {
@@ -233,7 +381,7 @@ vec3 simulateRay(vec4 loc, vec4 dir) {
     if( intersectAll(loc, dir) == INFINITE_DISTANCE )
         return BLACK;
 
-    return surface_c;
+    return computeColor(reflect(dir.xyz, surface_n));
 }
 
 void main(void) {
@@ -247,10 +395,6 @@ void main(void) {
     float reflectionScaleFactor = 1.0;
 
     color = simulateRay(eye_l, rayDir);
-
-    
-
-
 
     /*
     // reflection ray depth 1

@@ -2,7 +2,39 @@ var X = 0;
 var Y = 1;
 var Z = 2;
 
-/*
+var spheres = [
+{
+  translate: [-0.1, 0.2, -2.0],
+  scale: [0.5, 0.3, 0.3],
+  color: [0.9, 0.1, 0.1],
+  colProperties: [15.0, 0.3, 0.7]
+},
+{
+  translate: [0.7, 0.0, -1.0],
+  scale: [0.2, 0.2, 0.2],
+  color: [0.5, 0.5, 0.5],
+  colProperties: [45.0, 0.7, 0.5]
+}
+];
+
+var planes = [
+{
+  translate: [-0.5, -0.5, 0.0],
+  scale: [1.0, 1.0, 1.0],
+  color: [0.1, 0.1, 0.7],
+  colProperties: [10.0, 0.4, 0.4]
+}
+];
+
+var cubes = [
+{
+  translate: [-1.0, 0.7, -4.0],
+  scale: [0.3, 0.5, 0.3],
+  color: [0.4, 1.0, 0.4],
+  colProperties: [2.0, 0.1, 0.4]
+}
+];
+
 function computeTRS(t, s) {
   return [s[X], 0.0, 0.0, 0.0,   0.0, s[Y], 0.0, 0.0,   0.0, 0.0, s[Z], 0.0,   t[X], t[Y], t[Z], 1.0];
 }
@@ -10,50 +42,56 @@ function computeTRS(t, s) {
 function computeInvTRS(t, s) {
   return computeTRS([-t[X]/s[X], -t[Y]/s[Y], -t[Z]/s[Z]],  [1.0/s[X], 1.0/s[Y], 1.0/s[Z]]);
 }
-*/
-
-function computeTRS(t, s) {
-  return [1.0, 0.0, 0.0, 0.0,   0.0, 1.0, 0.0, 0.0,   0.0, 0.0, 1.0, 0.0,   t[X], t[Y], t[Z], 1.0];
-}
-
-function computeInvTRS(t, s) {
-  return computeTRS([-t[X], -t[Y], -t[Z]],  [1.0, 1.0, 1.0]);
-}
 
 var trsSpheres = [];
 var trsInvSpheres = [];
 var colSpheres = [];
 var colPropSpheres = [];
 
-function makeSpheres() {
-  var spheres = [
-  {
-    translate: [1.0, 0.0, -1.0],
-    scale: [0.2, 0.2, 0.2],
-    color: [0.5, 0.5, 0.5],
-    colProperties: [5.0, 0.3, 0.5]
-  }  /*,
-  {
-    translate: [-0.5, 0.2, -2.0],
-    scale: [0.3, 0.3, 0.3],
-    color: [0.9, 0.1, 0.1],
-    colProperties: [15.0, 0.7, 0.7]
-  }
-  */
-  ];
+var trsPlanes = [];
+var trsInvPlanes = [];
+var colPlanes = [];
+var colPropPlanes = [];
 
-  trsSpheres = computeTRS(spheres[0].translate, spheres[0].scale);
-  trsInvSpheres = ( computeInvTRS(spheres[0].translate, spheres[0].scale) );
-  colSpheres = ( spheres[0].color );
-  colPropSpheres = ( spheres[0].colProperties );
-  for( var i = 1; i < spheres.length; i++ ) {
-    trsSpheres.concat( computeTRS(spheres[i].translate, spheres[i].scale) );
-    trsInvSpheres.concat( computeInvTRS(spheres[i].translate, spheres[i].scale) );
-    colSpheres.concat( spheres[i].color );
-    colPropSpheres.concat( spheres[i].colProperties );
+var trsCubes = [];
+var trsInvCubes = [];
+var colCubes = [];
+var colPropCubes = [];
+
+function makeSpheres() {
+  
+  for( var i = 0; i < spheres.length; i++ ) {
+    trsSpheres = trsSpheres.concat( computeTRS(spheres[i].translate, spheres[i].scale) );
+    trsInvSpheres = trsInvSpheres.concat( computeInvTRS(spheres[i].translate, spheres[i].scale) );
+    colSpheres = colSpheres.concat( spheres[i].color );
+    colPropSpheres = colPropSpheres.concat( spheres[i].colProperties );
   }
 }
 
+function makePlanes() {
+
+  for( var i = 0; i < planes.length; i++ ) {
+    trsPlanes = trsPlanes.concat( computeTRS(planes[i].translate, planes[i].scale) );
+    trsInvPlanes = trsInvPlanes.concat( computeInvTRS(planes[i].translate, planes[i].scale) );
+    colPlanes = colPlanes.concat( planes[i].color );
+    colPropPlanes = colPropPlanes.concat( planes[i].colProperties );
+  }
+}
+
+function makeCubes() {
+
+  for( var i = 0; i < cubes.length; i++ ) {
+    trsCubes = trsCubes.concat( computeTRS(cubes[i].translate, cubes[i].scale) );
+    trsInvCubes = trsInvCubes.concat( computeInvTRS(cubes[i].translate, cubes[i].scale) );
+    colCubes = colCubes.concat( cubes[i].color );
+    colPropCubes = colPropCubes.concat( cubes[i].colProperties );
+  }
+}
+
+
+makeSpheres();
+makePlanes();
+makeCubes();
 
 
 
@@ -222,11 +260,25 @@ function square() { return _shape ( [
           gl.uniform3fv(gl.getUniformLocation(shaderProgram, name), colProperties);
         }
 
-        makeSpheres();
         addUniformMatrixArray("trsSpheres", trsSpheres);
         addUniformMatrixArray("trsInvSpheres", trsInvSpheres);
         addColorArray("colSpheres", colSpheres);
         addColorProperiesArray("colPropSpheres", colPropSpheres);
+
+        addUniformMatrixArray("trsPlanes", trsPlanes);
+        addUniformMatrixArray("trsInvPlanes", trsInvPlanes);
+        addColorArray("colPlanes", colPlanes);
+        addColorProperiesArray("colPropPlanes", colPropPlanes);
+
+        addUniformMatrixArray("trsCubes", trsCubes);
+        addUniformMatrixArray("trsInvCubes", trsInvCubes);
+        addColorArray("colCubes", colCubes);
+        addColorProperiesArray("colPropCubes", colPropCubes);
+
+        var cubeFaces = [1.0, 0.0, 0.0, -1.0,   -1.0, 0.0, 0.0, -1.0,   0.0, 1.0, 0.0, -1.0,   0.0, -1.0, 0.0, -1.0,   0.0, 0.0, 1.0, -1.0,   0.0, 0.0, -1.0, -1.0];
+        gl.uniform4fv(gl.getUniformLocation(shaderProgram, "UNIT_CUBE_FACES"), 
+          cubeFaces
+        );
 
         //XXX
         /*
@@ -263,8 +315,10 @@ function square() { return _shape ( [
 
         var infiniteLights = 
 //          x     y     z  brightness
-        [ -1.2,  1.0, -0.1, 0.5,
-           0.5,  2.0,  2.0, 0.5 ];
+        [ 
+           0.5,  2.0,  2.0, 0.5 ,
+        -1.2,  1.0, -0.1, 0.5
+        ];
         gl.uniform4fv(gl.getUniformLocation(shaderProgram, "infiniteLights"), infiniteLights);
 
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(shape.vertices), gl.STATIC_DRAW);

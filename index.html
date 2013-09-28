@@ -11,7 +11,12 @@ Two lights, three spheres, three level deep reflection (1 original ray + 3 refle
 
 float INFINITE_DISTANCE = 10000000000000000000000000000000000000.;   // TODO: probably a better way to do this because programmers are smart and include upper limit values in their libraries somehow?
 
-const int NUM_SPHERES = 3;
+const int NUM_SPHERES = 1;
+uniform mat4 trsSpheres[NUM_SPHERES];
+uniform mat4 trsInvSpheres[NUM_SPHERES];
+uniform vec3 colSpheres[NUM_SPHERES];
+uniform vec3 colPropSpheres[NUM_SPHERES];
+
 const int NUM_INFINITE_LIGHTS = 2;
 
 
@@ -70,28 +75,49 @@ void popSurfaceStash() {
 }
 
 // sets surface_t, surface_l, surface_n, surface_c
-float intersectAll(vec3 loc, vec3 dir) {
+float intersectAll(vec4 loc, vec4 dir) {
     surface_t = INFINITE_DISTANCE;
 
     // add objects here
     for( int i = 0; i < NUM_SPHERES; ++i ) {
-        vec3  c = sphereLocs[i].xyz;
-        float r = sphereLocs[i].w;
+        //vec3  c = sphereLocs[i].xyz;
+        //float r = sphereLocs[i].w;
 
-        float tPrime = intersectSphere(loc, dir, c, r);
+        vec4 s_loc = trsInvSpheres[i] * loc;
+        vec4 s_dir = normalize(trsInvSpheres[i] * loc);
+
+        float B = 2.0 * dot(s_dir, s_loc);
+        float C = dot(s_loc, s_loc) - 1.0;
+        float d = B*B - 4.0*C;
+
+        float tPrime = INFINITE_DISTANCE;
+        if( d >= 0.0 ) tPrime = (-B - sqrt(d) / 2.0);
+        vec4 s_intesrsectsAt = s_loc + tPrime * s_dir;
+        vec4 intersectsAt = trsSpheres[i] * s_intesrsectsAt;
+        tPrime = length(intersectsAt - loc);
+
+        //float tPrime = intersectSphere(loc, dir, c, r);
         if( tPrime < surface_t && tPrime > 0.) {
+            /*
             surface_t = tPrime;
             surface_l = loc + surface_t * dir;
             surface_n = normalize(surface_l - c);
             surface_c = sphereCols[i];
             surface_p = sphereColProperties[i];
+            */
+            surface_t = tPrime;
+            surface_l = intersectsAt.xyz;
+            surface_n = (trsSpheres[i] * vec4(s_intesrsectsAt.xyz, 0.0)).xyz;
+            surface_c = colSpheres[i];
+            surface_p = colPropSpheres[i];
         }
+
     }
 
     return surface_t;
 }
 
-float intersectAllWithBackup(vec3 loc, vec3 dir) {
+float intersectAllWithBackup(vec4 loc, vec4 dir) {
     stashSurface();
     float ret = intersectAll(loc, dir);
     popSurfaceStash();
@@ -122,8 +148,8 @@ vec3 computeDirectedLights( vec3 surfaceLoc,
         vec3 lSpecular = metallic * surfaceCol + (1. - metallic) * lDiffuse;
 
         if( dot(lightDir, surfaceNormal) > 0.0 ) {
-            vec3 s = fixIntersectionPoint(surfaceLoc, lightDir);
-            if( intersectAllWithBackup(s, lightDir) != INFINITE_DISTANCE ) { continue; }
+            vec4 s = vec4(fixIntersectionPoint(surfaceLoc, lightDir), 1.0);
+            if( intersectAllWithBackup(s, vec4(lightDir, 0.0)) != INFINITE_DISTANCE ) { continue; }
 
             // diffused light
             cDiffused = lDiffuse * dot( surfaceNormal, lightDir );
@@ -154,12 +180,14 @@ vec3 computeColor( vec3 surfaceLoc,
 }
 
 // returns color and saves intersection info in surface_... variables
-vec3 simulateRay(vec3 loc, vec3 dir) {
+vec3 simulateRay(vec4 loc, vec4 dir) {
     vec3 color = vec3(0., 0., 0.);
 
     if( intersectAll(loc, dir) != INFINITE_DISTANCE ) {
-        vec3 reflectionDir = reflect(dir, surface_n);
-        color = computeColor( surface_l, surface_n, reflectionDir, surface_c, surface_p );
+        return vec3(0.7, 0.2, 0.2);
+
+        vec4 reflectionDir = reflect(dir, vec4(surface_n, 1.0));
+        color = computeColor( surface_l, surface_n, reflectionDir.xyz, surface_c, surface_p );
     }
 
     return color;
@@ -171,12 +199,13 @@ void main(void) {
     float screenY = vUV.y;
     float time = uTime;
     vec3 color = vec3(0., 0., 0.);
-    vec3 rayDir = scanDir(screenX, screenY).xyz;
+    vec4 rayDir = scanDir(screenX, screenY);
 
     float reflectionScaleFactor = 1.0;
 
-    color = simulateRay(eye_l.xyz, rayDir);
+    color = simulateRay(eye_l, rayDir);
 
+    /*
     // reflection ray depth 1
     if( surface_t != INFINITE_DISTANCE ) {
         reflectionScaleFactor *= surface_p.y;
@@ -197,6 +226,7 @@ void main(void) {
         rayDir = reflect(rayDir, surface_n);
         color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(surface_l, rayDir), rayDir);
     }
+    */
 
     gl_FragColor = vec4(color, 1.0);
 }

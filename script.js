@@ -2,12 +2,22 @@ var X = 0;
 var Y = 1;
 var Z = 2;
 
+/*
 function computeTRS(t, s) {
   return [s[X], 0.0, 0.0, 0.0,   0.0, s[Y], 0.0, 0.0,   0.0, 0.0, s[Z], 0.0,   t[X], t[Y], t[Z], 1.0];
 }
 
 function computeInvTRS(t, s) {
   return computeTRS([-t[X]/s[X], -t[Y]/s[Y], -t[Z]/s[Z]],  [1.0/s[X], 1.0/s[Y], 1.0/s[Z]]);
+}
+*/
+
+function computeTRS(t, s) {
+  return [1.0, 0.0, 0.0, 0.0,   0.0, 1.0, 0.0, 0.0,   0.0, 0.0, 1.0, 0.0,   t[X], t[Y], t[Z], 1.0];
+}
+
+function computeInvTRS(t, s) {
+  return computeTRS([-t[X], -t[Y], -t[Z]],  [1.0, 1.0, 1.0]);
 }
 
 var trsSpheres = [];
@@ -18,24 +28,29 @@ var colPropSpheres = [];
 function makeSpheres() {
   var spheres = [
   {
-    translate: [0.5, 0.0, -3.0],
-    scale: [0.5, 0.5, 0.5],
+    translate: [1.0, 0.0, -1.0],
+    scale: [0.2, 0.2, 0.2],
     color: [0.5, 0.5, 0.5],
-    colProperties: [5.0, 0.3, 0.0]
-  },
+    colProperties: [5.0, 0.3, 0.5]
+  }  /*,
   {
     translate: [-0.5, 0.2, -2.0],
     scale: [0.3, 0.3, 0.3],
     color: [0.9, 0.1, 0.1],
     colProperties: [15.0, 0.7, 0.7]
   }
+  */
   ];
 
-  for( var i = 0; i < spheres.length; i++ ) {
-    trsSpheres.push( computeTRS(spheres[i].translate, spheres[i].scale) );
-    trsInvSpheres.push( computeInvTRS(spheres[i].translate, spheres[i].scale) );
-    colSpheres.push( spheres[i].color );
-    colPropSpheres.push( spheres[i].colProperties );
+  trsSpheres = computeTRS(spheres[0].translate, spheres[0].scale);
+  trsInvSpheres = ( computeInvTRS(spheres[0].translate, spheres[0].scale) );
+  colSpheres = ( spheres[0].color );
+  colPropSpheres = ( spheres[0].colProperties );
+  for( var i = 1; i < spheres.length; i++ ) {
+    trsSpheres.concat( computeTRS(spheres[i].translate, spheres[i].scale) );
+    trsInvSpheres.concat( computeInvTRS(spheres[i].translate, spheres[i].scale) );
+    colSpheres.concat( spheres[i].color );
+    colPropSpheres.concat( spheres[i].colProperties );
   }
 }
 
@@ -106,26 +121,14 @@ function square() { return _shape ( [
 
     function initGL(canvas) {
 
-      function addUniformMatrixArray(name, matrixArray) {
-        gl.uniformMatrix4fv(gl.getUniformLocation(canvas.shaderProgram, name), matrixArray);
-      }
-      function addColorArray(name, colors) {
-        gl.uniform3fv(gl.getUniformLocation(canvas.shaderProgram, name), colors);
-      }
-      function addColorProperiesArray(name, colProperties) {
-        gl.uniform3fv(gl.getUniformLocation(canvas.shaderProgram, name), colProperties);
-      }
+      
 
         try {
             gl = canvas.getContext("experimental-webgl");
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
 
-            makeSpheres();
-            addUniformMatrixArray("trsSpheres", trsSpheres);
-            addUniformMatrixArray("trsInvSpheres", trsInvSpheres);
-            addColorArray("colSpheres", colSpheres);
-            addColorProperiesArray("colPropSpheres", colPropSpheres);
+
 
         } catch (e) { }
         if (!gl) { alert("Could not initialise WebGL, sorry :-("); }
@@ -209,14 +212,24 @@ function square() { return _shape ( [
         gl.uniform1f(shaderProgram.MousePressedUniform, isMousePressed ? 1.0 : 0.0);
         gl.uniform1f(shaderProgram.TimeUniform, time); 
 
+        var addUniformMatrixArray = function(name, matrixArray) {
+          gl.uniformMatrix4fv(gl.getUniformLocation(shaderProgram, name), false, matrixArray);
+        }
+        var addColorArray = function(name, colors) {
+          gl.uniform3fv(gl.getUniformLocation(shaderProgram, name), colors);
+        }
+        var addColorProperiesArray = function(name, colProperties) {
+          gl.uniform3fv(gl.getUniformLocation(shaderProgram, name), colProperties);
+        }
+
+        makeSpheres();
+        addUniformMatrixArray("trsSpheres", trsSpheres);
+        addUniformMatrixArray("trsInvSpheres", trsInvSpheres);
+        addColorArray("colSpheres", colSpheres);
+        addColorProperiesArray("colPropSpheres", colPropSpheres);
+
         //XXX
         /*
-        var sphereLocs = 
-        //  x     y     z    radius
-        [  0.0,  0.0,  0.0,   0.2,
-           0.3,  0.1, -0.1,   0.3,
-          -0.15, 0.3,  0.1,   0.05 ];
-        */
         var sphereLocs = 
         //  x     y     z    radius
         [  2.1,  0.0, -2.0,   2.0,
@@ -243,6 +256,7 @@ function square() { return _shape ( [
 
         shaderProgram.sphereColPropertiesUniform = gl.getUniformLocation(shaderProgram, "sphereColProperties");
         gl.uniform3fv(shaderProgram.sphereColPropertiesUniform, sphereColProperties);
+        */
 
         var AMBIENT_REFLECTANCE = 0.05;
         gl.uniform1f(gl.getUniformLocation(shaderProgram, "AMBIENT_REFLECTANCE"), AMBIENT_REFLECTANCE);
@@ -252,7 +266,6 @@ function square() { return _shape ( [
         [ -1.2,  1.0, -0.1, 0.5,
            0.5,  2.0,  2.0, 0.5 ];
         gl.uniform4fv(gl.getUniformLocation(shaderProgram, "infiniteLights"), infiniteLights);
-
 
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(shape.vertices), gl.STATIC_DRAW);
 

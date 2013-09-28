@@ -9,6 +9,11 @@ Two lights, three spheres, three level deep reflection (1 original ray + 3 refle
 
 <script id="shader" type="x-shader/x-fragment">
 
+vec3 BLACK = vec3(0., 0., 0.);
+vec3 RED = vec3(1.0, 0., 0.);
+vec3 GREEN = vec3(0., 1.0, 0.);
+vec3 BLUE = vec3(0., 0., 1.0);
+
 float INFINITE_DISTANCE = 10000000000000000000000000000000000000.;   // TODO: probably a better way to do this because programmers are smart and include upper limit values in their libraries somehow?
 
 const int NUM_SPHERES = 1;
@@ -22,11 +27,6 @@ const int NUM_INFINITE_LIGHTS = 2;
 
 
 uniform vec4 infiniteLights[NUM_INFINITE_LIGHTS];
-//vec3 infiniteLight_d = normalize(vec3(-1., 1., -0.2));
-
-uniform vec4 sphereLocs[NUM_SPHERES];
-uniform vec3 sphereCols[NUM_SPHERES];
-uniform vec3 sphereColProperties[NUM_SPHERES];
 
 uniform float AMBIENT_REFLECTANCE;
 
@@ -37,9 +37,7 @@ vec4 eye_l = vec4(0., 0., fl, 1.);
 vec4 lookAt_l = vec4(0., 0., 0., 1.);
 vec4 eye_d = normalize(lookAt_l - eye_l);
 
-vec4 scanDir(float screenX, float screenY) {
-    return normalize(vec4((screenX - 0.5) * ar, screenY - 0.5, -fl, 0.0));
-}
+
 
 // Returns t (for p = v + tw) if intersection exists, otherwise returns INFINITE_DISTANCE.
 // Pre-condition: dir is normalized.
@@ -74,49 +72,41 @@ void popSurfaceStash() {
     surface_p = surface_p_backup;
 }
 
+/*
 // sets surface_t, surface_l, surface_n, surface_c
 float intersectAll(vec4 loc, vec4 dir) {
+
+    mat4 TRS = mat4(1.,0.,0.,0.,  0.,1.,0.,0.,  0.,0.,1.,0.,  0.5,0.,0.,1.);
+    mat4 INV = mat4(1.,0.,0.,0.,  0.,1.,0.,0.,  0.,0.,1.,0., -0.5,0.,0.,1.);
+
     surface_t = INFINITE_DISTANCE;
 
-    // add objects here
-    for( int i = 0; i < NUM_SPHERES; ++i ) {
-        //vec3  c = sphereLocs[i].xyz;
-        //float r = sphereLocs[i].w;
+    vec4 s_loc = INV * loc;
+    vec4 s_dir = normalize(INV * dir);
 
-        vec4 s_loc = trsInvSpheres[i] * loc;
-        vec4 s_dir = normalize(trsInvSpheres[i] * loc);
+    float B = 2.0 * dot(s_dir, s_loc);
+    float C = dot(s_loc, s_loc) - 1.0;
+    float d = B*B - 4.0*C;
 
-        float B = 2.0 * dot(s_dir, s_loc);
-        float C = dot(s_loc, s_loc) - 1.0;
-        float d = B*B - 4.0*C;
+        
 
-        float tPrime = INFINITE_DISTANCE;
-        if( d >= 0.0 ) tPrime = (-B - sqrt(d) / 2.0);
-        vec4 s_intesrsectsAt = s_loc + tPrime * s_dir;
-        vec4 intersectsAt = trsSpheres[i] * s_intesrsectsAt;
-        tPrime = length(intersectsAt - loc);
+    if( d >= 0.0 ) {
+        return 1.0;
 
-        //float tPrime = intersectSphere(loc, dir, c, r);
-        if( tPrime < surface_t && tPrime > 0.) {
-            /*
-            surface_t = tPrime;
-            surface_l = loc + surface_t * dir;
-            surface_n = normalize(surface_l - c);
-            surface_c = sphereCols[i];
-            surface_p = sphereColProperties[i];
-            */
-            surface_t = tPrime;
-            surface_l = intersectsAt.xyz;
-            surface_n = (trsSpheres[i] * vec4(s_intesrsectsAt.xyz, 0.0)).xyz;
-            surface_c = colSpheres[i];
-            surface_p = colPropSpheres[i];
-        }
+        float s_tPrime = (-B - sqrt(d) / 2.0);
+
+        vec4 s_intesrsectsAt = s_loc + s_tPrime * s_dir;
+        vec4 s_normal = vec4(s_intesrsectsAt.xyz, 0.0);
+        vec4 intersectsAt = TRS * s_intesrsectsAt;
+        float tPrime = length(intersectsAt - loc);
+        surface_t = tPrime;
 
     }
 
     return surface_t;
 }
-
+*/
+/*
 float intersectAllWithBackup(vec4 loc, vec4 dir) {
     stashSurface();
     float ret = intersectAll(loc, dir);
@@ -164,7 +154,6 @@ vec3 computeDirectedLights( vec3 surfaceLoc,
     
     return directedColor;
 }
-
 vec3 computeColor( vec3 surfaceLoc,
                    vec3 surfaceNormal,
                    vec3 reflectedDir,
@@ -178,19 +167,73 @@ vec3 computeColor( vec3 surfaceLoc,
     AMBIENT_REFLECTANCE         * ambientColor +
     (1.0 - AMBIENT_REFLECTANCE) * diffusedColor;
 }
+*/
 
 // returns color and saves intersection info in surface_... variables
+/*
 vec3 simulateRay(vec4 loc, vec4 dir) {
     vec3 color = vec3(0., 0., 0.);
 
     if( intersectAll(loc, dir) != INFINITE_DISTANCE ) {
         return vec3(0.7, 0.2, 0.2);
 
-        vec4 reflectionDir = reflect(dir, vec4(surface_n, 1.0));
-        color = computeColor( surface_l, surface_n, reflectionDir.xyz, surface_c, surface_p );
+        //vec4 reflectionDir = reflect(dir, vec4(surface_n, 1.0));
+        //color = computeColor( surface_l, surface_n, reflectionDir.xyz, surface_c, surface_p );
     }
 
     return color;
+}
+*/
+
+vec4 res_intersectSphere_point;
+vec4 res_intersectSphere_normal;
+
+void intersectAllSpheres(vec4 loc, vec4 dir) {
+
+    for (int i = 0; i < NUM_SPHERES; i++) {
+        mat4 INV = trsInvSpheres[i];
+
+        vec3 v = (INV * loc).xyz;
+        vec3 w = normalize(INV * dir).xyz;
+
+        float B = 2.0 * dot(w, v);
+        float C = dot(v, v) - 1.0;
+        float d = B*B - 4.0*C;
+
+        if( d < 0.0 ) continue;  // missed it
+
+        float t = (-B - sqrt(d)) / 2.0;        // t in sphere's coordinates
+        if( t <= 0.0 ) continue;               // behind us
+
+        vec3 p = v + t * w;  // intersection point in sphere's coordinates
+        res_intersectSphere_point  = trsSpheres[i] * vec4(p, 1.);
+        res_intersectSphere_normal = trsSpheres[i] * vec4(p, 0.);
+
+        t = length(res_intersectSphere_point - loc);  // t in real coordinates
+
+        if( t < surface_t ) {
+            surface_t = t;
+            surface_p = res_intersectSphere_point.xyz;
+            surface_n = res_intersectSphere_normal.xyz;
+            surface_c = colSpheres[i];
+        }
+    }
+}
+
+float intersectAll(vec4 loc, vec4 dir) {
+    surface_t = INFINITE_DISTANCE;
+
+    intersectAllSpheres(loc, dir);
+
+    return surface_t;
+}
+
+vec3 simulateRay(vec4 loc, vec4 dir) {
+    
+    if( intersectAll(loc, dir) == INFINITE_DISTANCE )
+        return BLACK;
+
+    return surface_c;
 }
 
 void main(void) {
@@ -199,28 +242,18 @@ void main(void) {
     float screenY = vUV.y;
     float time = uTime;
     vec3 color = vec3(0., 0., 0.);
-    vec4 rayDir = scanDir(screenX, screenY);
+    vec4 rayDir = normalize(vec4((screenX - 0.5) * ar, screenY - 0.5, -fl, 0.0));
 
     float reflectionScaleFactor = 1.0;
 
     color = simulateRay(eye_l, rayDir);
 
+    
+
+
+
     /*
     // reflection ray depth 1
-    if( surface_t != INFINITE_DISTANCE ) {
-        reflectionScaleFactor *= surface_p.y;
-        rayDir = reflect(rayDir, surface_n);
-        color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(surface_l, rayDir), rayDir);
-    }
-
-    // reflection ray depth 2
-    if( surface_t != INFINITE_DISTANCE ) {
-        reflectionScaleFactor *= surface_p.y;
-        rayDir = reflect(rayDir, surface_n);
-        color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(surface_l, rayDir), rayDir);
-    }
-
-    // reflection ray depth 3
     if( surface_t != INFINITE_DISTANCE ) {
         reflectionScaleFactor *= surface_p.y;
         rayDir = reflect(rayDir, surface_n);

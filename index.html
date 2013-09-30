@@ -14,7 +14,11 @@ vec3 RED = vec3(1.0, 0., 0.);
 vec3 GREEN = vec3(0., 1.0, 0.);
 vec3 BLUE = vec3(0., 0., 1.0);
 
-float INFINITE_DISTANCE = 10000000000000000000000000000000000000.;   // TODO: probably a better way to do this because programmers are smart and include upper limit values in their libraries somehow?
+const float HALF_FOG_AT = 3.0;
+const float ALL_FOG_AT = 9.0 * HALF_FOG_AT;
+vec3 fogColor = vec3(0.3, 0.3, 0.35);
+
+float INFINITE_DISTANCE = ALL_FOG_AT;
 
 const int NUM_SPHERES = 2;
 uniform mat4 trsSpheres[NUM_SPHERES];
@@ -47,19 +51,6 @@ vec4 eye_l = vec4(0., 0., fl, 1.);
 vec4 lookAt_l = vec4(0., 0., 0., 1.);
 vec4 eye_d = normalize(lookAt_l - eye_l);
 
-
-
-// Returns t (for p = v + tw) if intersection exists, otherwise returns INFINITE_DISTANCE.
-// Pre-condition: dir is normalized.
-float intersectSphere(vec3 loc, vec3 dir, vec3 center, float radius) {
-    // dir must be normalized, so A = dir * dir will always be 1.
-    float B = 2.0 * dot(dir, (loc - center));
-    float C = dot(loc-center, loc-center) - radius * radius;
-
-    float d = B*B - 4.0*C;
-    if (d < 0.0) return INFINITE_DISTANCE; else return (-B - sqrt(d)) / 2.0;
-}
-
 float surface_t, surface_t_backup;   // distance t
 vec3  surface_l, surface_l_backup;   // loc
 vec3  surface_n, surface_n_backup;   // normal
@@ -82,44 +73,7 @@ void popSurfaceStash() {
     surface_p = surface_p_backup;
 }
 
-/*
-// sets surface_t, surface_l, surface_n, surface_c
-float intersectAll(vec4 loc, vec4 dir) {
-
-    mat4 TRS = mat4(1.,0.,0.,0.,  0.,1.,0.,0.,  0.,0.,1.,0.,  0.5,0.,0.,1.);
-    mat4 INV = mat4(1.,0.,0.,0.,  0.,1.,0.,0.,  0.,0.,1.,0., -0.5,0.,0.,1.);
-
-    surface_t = INFINITE_DISTANCE;
-
-    vec4 s_loc = INV * loc;
-    vec4 s_dir = normalize(INV * dir);
-
-    float B = 2.0 * dot(s_dir, s_loc);
-    float C = dot(s_loc, s_loc) - 1.0;
-    float d = B*B - 4.0*C;
-
-        
-
-    if( d >= 0.0 ) {
-        return 1.0;
-
-        float s_tPrime = (-B - sqrt(d) / 2.0);
-
-        vec4 s_intesrsectsAt = s_loc + s_tPrime * s_dir;
-        vec4 s_normal = vec4(s_intesrsectsAt.xyz, 0.0);
-        vec4 intersectsAt = TRS * s_intesrsectsAt;
-        float tPrime = length(intersectsAt - loc);
-        surface_t = tPrime;
-
-    }
-
-    return surface_t;
-}
-*/
-
-
-
-vec3 fixIntersectionPoint(vec3 loc, vec3 dir) {
+vec4 fixIntersectionPoint(vec4 loc, vec4 dir) {
     return loc + 0.0005 * dir;
 }
 /*
@@ -295,6 +249,7 @@ void intersectAllCubes(vec4 loc, vec4 dir) {
         }
 
         if( maxEnterT > minExitT )  continue;  // missed it
+        if( maxEnterT < 0. )  continue;  // behind us
 
         vec4 p = v + maxEnterT * w;    // intersection in cube's coordinates
         p = trsCubes[i] * p;           // intersection in world coordinates
@@ -347,7 +302,7 @@ vec3 computeDirectedLight(vec3 reflectedDir) {
         vec3 lSpecular = metallic * surface_c + (1. - metallic) * lDiffuse;
 
         if( dot(lightDir, surface_n) > 0. ) {
-            vec4 s = vec4(fixIntersectionPoint(surface_l, lightDir), 1.0);
+            vec4 s = fixIntersectionPoint(vec4(surface_l, 1.), vec4(lightDir, 0.));
             if( intersectAllWithBackup(s, vec4(lightDir, 0.0)) != INFINITE_DISTANCE ) { continue; }
 
             // diffused light
@@ -365,21 +320,26 @@ vec3 computeDirectedLight(vec3 reflectedDir) {
 }
 
 vec3 computeColor(vec3 reflectedDir) {
-    if( surface_t == INFINITE_DISTANCE )
-        return BLACK;
+    if( surface_t >= ALL_FOG_AT )
+        return fogColor;
 
     vec3 ambientColor  = surface_c;
     vec3 directedColor = computeDirectedLight(reflectedDir);
 
-    return
+    vec3 color =
     AMBIENT_REFLECTANCE         * ambientColor +
     (1.0 - AMBIENT_REFLECTANCE) * directedColor;
+
+    // seen through fog
+    float stf = pow(0.5, surface_t / HALF_FOG_AT);
+    color = stf * color + (1.0 - stf) * fogColor;
+
+    return color;
 }
 
 vec3 simulateRay(vec4 loc, vec4 dir) {
     
-    if( intersectAll(loc, dir) == INFINITE_DISTANCE )
-        return BLACK;
+    intersectAll(loc, dir);
 
     return computeColor(reflect(dir.xyz, surface_n));
 }
@@ -396,14 +356,12 @@ void main(void) {
 
     color = simulateRay(eye_l, rayDir);
 
-    /*
     // reflection ray depth 1
     if( surface_t != INFINITE_DISTANCE ) {
         reflectionScaleFactor *= surface_p.y;
-        rayDir = reflect(rayDir, surface_n);
-        color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(surface_l, rayDir), rayDir);
+        rayDir = reflect(rayDir, vec4(surface_n, 0.));
+        color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(vec4(surface_l, 1.0), rayDir), rayDir);
     }
-    */
 
     gl_FragColor = vec4(color, 1.0);
 }

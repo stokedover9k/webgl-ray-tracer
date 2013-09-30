@@ -4,17 +4,19 @@
 <script id="title" type="text/plain">Ray Tracer</script>
 
 <script id="description" type="text/plain">
-Two lights, three spheres, three level deep reflection (1 original ray + 3 reflected)
+Reflection, transformed objects, fog...
 </script>
 
 <script id="shader" type="x-shader/x-fragment">
 
 vec3 BLACK = vec3(0., 0., 0.);
-vec3 RED = vec3(1.0, 0., 0.);
+vec3 RED   = vec3(1.0, 0., 0.);
 vec3 GREEN = vec3(0., 1.0, 0.);
-vec3 BLUE = vec3(0., 0., 1.0);
+vec3 BLUE  = vec3(0., 0., 1.0);
 
-const float HALF_FOG_AT = 3.0;
+const int REFLECTION_DEPTH = 3;
+
+const float HALF_FOG_AT = 5.0;
 const float ALL_FOG_AT = 9.0 * HALF_FOG_AT;
 vec3 fogColor = vec3(0.3, 0.3, 0.35);
 
@@ -76,78 +78,8 @@ void popSurfaceStash() {
 vec4 fixIntersectionPoint(vec4 loc, vec4 dir) {
     return loc + 0.0005 * dir;
 }
-/*
 
-vec3 computeDirectedLights( vec3 surfaceLoc,
-                            vec3 surfaceNormal,
-                            vec3 reflectedDir,
-                            vec3 surfaceCol,
-                            vec3 surfaceColProperties)
-{
-    float shiny    = surfaceColProperties.x;
-    float metallic = surfaceColProperties.y;
-
-    vec3 directedColor = vec3(0., 0., 0.);
-    
-    for (int idx = 0; idx < NUM_INFINITE_LIGHTS; ++idx) {
-        
-        vec3 lightDir = normalize(infiniteLights[idx].xyz);
-        vec3 cDiffused = vec3(0., 0., 0.);
-        
-        vec3 lDiffuse = vec3(0.7, 0.7, 0.7);   //TODO: color of the light
-        vec3 lSpecular = metallic * surfaceCol + (1. - metallic) * lDiffuse;
-
-        if( dot(lightDir, surfaceNormal) > 0.0 ) {
-            vec4 s = vec4(fixIntersectionPoint(surfaceLoc, lightDir), 1.0);
-            if( intersectAllWithBackup(s, vec4(lightDir, 0.0)) != INFINITE_DISTANCE ) { continue; }
-
-            // diffused light
-            cDiffused = lDiffuse * dot( surfaceNormal, lightDir );
-        }
-
-        // specular light
-        vec3 cSpecular = lSpecular * pow(max(0., dot( lightDir, reflectedDir )), shiny);
-        
-        //                    intensity        *       sum_of_colors
-        directedColor += infiniteLights[idx].w * (cDiffused + cSpecular);
-    };
-    
-    return directedColor;
-}
-vec3 computeColor( vec3 surfaceLoc,
-                   vec3 surfaceNormal,
-                   vec3 reflectedDir,
-                   vec3 surfaceCol,
-                   vec3 surfaceColProperties)
-{
-    vec3 ambientColor  = surfaceCol.xyz;
-    vec3 diffusedColor = computeDirectedLights(surfaceLoc, surfaceNormal, reflectedDir, surfaceCol, surfaceColProperties);
-
-    return
-    AMBIENT_REFLECTANCE         * ambientColor +
-    (1.0 - AMBIENT_REFLECTANCE) * diffusedColor;
-}
-*/
-
-
-// returns color and saves intersection info in surface_... variables
-/*
-vec3 simulateRay(vec4 loc, vec4 dir) {
-    vec3 color = vec3(0., 0., 0.);
-
-    if( intersectAll(loc, dir) != INFINITE_DISTANCE ) {
-        return vec3(0.7, 0.2, 0.2);
-
-        //vec4 reflectionDir = reflect(dir, vec4(surface_n, 1.0));
-        //color = computeColor( surface_l, surface_n, reflectionDir.xyz, surface_c, surface_p );
-    }
-
-    return color;
-}
-*/
-
-vec4 res_intersectSphere_point;
-vec4 res_intersectSphere_normal;
+/////////////////////////////////////////////////////////////////////////////////////////
 
 void intersectAllSpheres(vec4 loc, vec4 dir) {
 
@@ -181,6 +113,8 @@ void intersectAllSpheres(vec4 loc, vec4 dir) {
     }
 }
 
+//---------------------------------------------------------------------------------------
+
 void intersectAllPlanes(vec4 loc, vec4 dir) {
 
     for (int i = 0; i < NUM_PLANES; i++) {
@@ -207,6 +141,8 @@ void intersectAllPlanes(vec4 loc, vec4 dir) {
         }
     };
 }
+
+//---------------------------------------------------------------------------------------
 
 void intersectAllCubes(vec4 loc, vec4 dir) {
 
@@ -264,6 +200,8 @@ void intersectAllCubes(vec4 loc, vec4 dir) {
     }
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////
+
 float intersectAll(vec4 loc, vec4 dir) {
     surface_t = INFINITE_DISTANCE;
 
@@ -306,7 +244,7 @@ vec3 computeDirectedLight(vec3 reflectedDir) {
             if( intersectAllWithBackup(s, vec4(lightDir, 0.0)) != INFINITE_DISTANCE ) { continue; }
 
             // diffused light
-            cDiffused = lDiffuse * dot( surface_n, lightDir );
+            cDiffused = surface_c * lDiffuse * dot( surface_n, lightDir );
         }
 
         // specular light
@@ -357,10 +295,13 @@ void main(void) {
     color = simulateRay(eye_l, rayDir);
 
     // reflection ray depth 1
-    if( surface_t != INFINITE_DISTANCE ) {
-        reflectionScaleFactor *= surface_p.y;
-        rayDir = reflect(rayDir, vec4(surface_n, 0.));
-        color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(vec4(surface_l, 1.0), rayDir), rayDir);
+    for( int i = 0; i < REFLECTION_DEPTH; i++ ) {
+        if( surface_t != INFINITE_DISTANCE ) {
+            reflectionScaleFactor *= surface_p.y;
+            rayDir = reflect(rayDir, vec4(surface_n, 0.));
+            color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(vec4(surface_l, 1.0), rayDir), rayDir);
+        }
+        else break;
     }
 
     gl_FragColor = vec4(color, 1.0);

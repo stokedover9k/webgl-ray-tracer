@@ -4,22 +4,22 @@ var Z = 2;
 
 var spheres = [
 {
-  translate: [-0.1, 0.2, -2.0],
-  scale: [0.5, 0.3, 0.3],
+  translate: [-0.9, 0.2, -3.0],
+  scale: [0.9, 0.7, 0.7],
   color: [0.9, 0.1, 0.1],
   colProperties: [15.0, 0.3, 0.7]
 },
 {
-  translate: [0.7, 0.0, -1.0],
-  scale: [0.2, 0.2, 0.2],
-  color: [0.5, 0.5, 0.5],
+  translate: [1.7, 0.0, -3.0],
+  scale: [1.5, 1.5, 1.5],
+  color: [0.1, 0.1, 0.9],
   colProperties: [45.0, 0.7, 0.5]
 }
 ];
 
 var planes = [
 {
-  translate: [-0.5, -0.5, 0.0],
+  translate: [-0.5, 0.5, 0.0],
   scale: [1.0, 1.0, 1.0],
   color: [0.1, 0.1, 0.7],
   colProperties: [10.0, 0.4, 0.4]
@@ -28,7 +28,7 @@ var planes = [
 
 var cubes = [
 {
-  translate: [-1.0, 0.7, -4.0],
+  translate: [-1.0, 0.7, -2.0],
   scale: [0.3, 0.5, 0.3],
   color: [0.4, 1.0, 0.4],
   colProperties: [2.0, 0.1, 0.4]
@@ -87,11 +87,6 @@ function makeCubes() {
     colPropCubes = colPropCubes.concat( cubes[i].colProperties );
   }
 }
-
-
-makeSpheres();
-makePlanes();
-makeCubes();
 
 
 
@@ -159,7 +154,9 @@ function square() { return _shape ( [
 
     function initGL(canvas) {
 
-      
+      makeSpheres();
+      makePlanes();
+      makeCubes();
 
         try {
             gl = canvas.getContext("experimental-webgl");

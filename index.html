@@ -14,11 +14,11 @@ vec3 RED   = vec3(1.0, 0., 0.);
 vec3 GREEN = vec3(0., 1.0, 0.);
 vec3 BLUE  = vec3(0., 0., 1.0);
 
-const int REFLECTION_DEPTH = 3;
+const int REFLECTION_DEPTH = 1;
 
-const float HALF_FOG_AT = 5.0;
+const float HALF_FOG_AT = 15.0;
 const float ALL_FOG_AT = 9.0 * HALF_FOG_AT;
-vec3 fogColor = vec3(0.3, 0.3, 0.35);
+vec3 fogColor = vec3(0.5, 0.5, 0.52);
 
 float INFINITE_DISTANCE = ALL_FOG_AT;
 
@@ -82,15 +82,14 @@ vec4 fixIntersectionPoint(vec4 loc, vec4 dir) {
 /////////////////////////////////////////////////////////////////////////////////////////
 
 void intersectAllSpheres(vec4 loc, vec4 dir) {
-
     for (int i = 0; i < NUM_SPHERES; i++) {
         mat4 INV = trsInvSpheres[i];
 
-        vec3 v = (INV * loc).xyz;
-        vec3 w = normalize(INV * dir).xyz;
+        vec4 v = INV * loc;
+        vec4 w = normalize(INV * dir);
 
         float B = 2.0 * dot(w, v);
-        float C = dot(v, v) - 1.0;
+        float C = dot(v, v) - 2.0;             // subtract another 1.0 to compensate for v.w * v.w
         float d = B*B - 4.0*C;
 
         if( d < 0.0 ) continue;                // missed it
@@ -98,15 +97,17 @@ void intersectAllSpheres(vec4 loc, vec4 dir) {
         float t = (-B - sqrt(d)) / 2.0;        // t in sphere's coordinates
         if( t <= 0.0 ) continue;               // behind us
 
-        vec3 p = v + t * w;                    // intersection point in sphere's coordinates
-        vec3 norm = normalize(trsSpheres[i] * vec4(p, 0.)).xyz;
-        p = (trsSpheres[i] * vec4(p, 1.)).xyz; // intersection point in world coordinates
-        t = length(p - loc.xyz);
+        vec4 p = v + t * w;                    // intersection point in sphere's coordinates
+        vec4 norm = normalize(trsSpheres[i] * vec4(p.xyz, 0.));
+        p = trsSpheres[i] * p;                 // intersection point in world coordinates
+        t = length(p - loc);
+
+        if( dot(dir, p - loc) < 0. ) continue;
 
         if( t < surface_t ) {
             surface_t = t;
-            surface_l = p;
-            surface_n = norm;
+            surface_l = p.xyz;
+            surface_n = norm.xyz;
             surface_c = colSpheres[i];
             surface_p = colPropSpheres[i];
         }
@@ -193,7 +194,7 @@ void intersectAllCubes(vec4 loc, vec4 dir) {
         if( t < surface_t ) {
             surface_t = t;
             surface_l = p.xyz;
-            surface_n = (trsCubes[i] * enterPlaneNormal).xyz;
+            surface_n = normalize((trsCubes[i] * enterPlaneNormal).xyz);
             surface_c = colCubes[i];
             surface_p = colPropCubes[i];
         }
@@ -287,8 +288,15 @@ void main(void) {
     float screenX = vUV.x;
     float screenY = vUV.y;
     float time = uTime;
+
     vec3 color = vec3(0., 0., 0.);
     vec4 rayDir = normalize(vec4((screenX - 0.5) * ar, screenY - 0.5, -fl, 0.0));
+
+    eye_l.z += 2.0;/*
+    eye_l.x += 1.  * sin(time / 3.0);
+    eye_l.y += 1.  * sin(time / 1.5);
+    eye_l.z += 3.  * sin(time / 2.0);
+    //*/
 
     float reflectionScaleFactor = 1.0;
 

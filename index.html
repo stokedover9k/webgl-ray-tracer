@@ -1,12 +1,7 @@
 
 <script src="script.js"></script>
-
 <script id="title" type="text/plain">Ray Tracer</script>
-
-<script id="description" type="text/plain">
-Reflection, transformed objects, fog...
-</script>
-
+<script id="description" type="text/plain">Reflection, transformed objects, fog...</script>
 <script id="shader" type="x-shader/x-fragment">
 
 vec3 BLACK = vec3(0., 0., 0.);
@@ -14,274 +9,148 @@ vec3 RED   = vec3(1.0, 0., 0.);
 vec3 GREEN = vec3(0., 1.0, 0.);
 vec3 BLUE  = vec3(0., 0., 1.0);
 
-const int REFLECTION_DEPTH = 1;
-
 const float HALF_FOG_AT = 15.0;
 const float ALL_FOG_AT = 9.0 * HALF_FOG_AT;
-vec3 fogColor = vec3(0.5, 0.5, 0.52);
+vec3 FOG_COLOR = vec3(0.5, 0.5, 0.52);
 
-float INFINITE_DISTANCE = ALL_FOG_AT;
+//----------------------------------------------------------------------
 
-const int NUM_SPHERES = 2;
-uniform mat4 trsSpheres[NUM_SPHERES];
-uniform mat4 trsInvSpheres[NUM_SPHERES];
-uniform vec3 colSpheres[NUM_SPHERES];
-uniform vec3 colPropSpheres[NUM_SPHERES];
+vec3 objSphere1_loc = vec3(1., 0., -3.);
+vec3 objSphere1_scale = vec3(0.5, 0.5, 0.5);
 
-const int NUM_PLANES = 1;
-uniform mat4 trsPlanes[NUM_PLANES];
-uniform mat4 trsInvPlanes[NUM_PLANES];
-uniform vec3 colPlanes[NUM_PLANES];
-uniform vec3 colPropPlanes[NUM_PLANES];
+vec3 objSphere2_loc = vec3(-1., 0.5, -3.);
+vec3 objSphere2_scale = vec3(0.3, 0.9, 0.5);
 
-const int NUM_CUBES = 1;
-uniform mat4 trsCubes[NUM_CUBES];
-uniform mat4 trsInvCubes[NUM_CUBES];
-uniform vec3 colCubes[NUM_CUBES];
-uniform vec3 colPropCubes[NUM_CUBES];
+//----------------------------------------------------------------------
 
-uniform vec4 UNIT_CUBE_FACES[6];
+const float FL = 1.0;  // focal length
+const float AR = 1.0;  // aspect ratio: width / height
+vec4 CAM_LOC = vec4(0., 0., FL, 1.);
+vec4 CAM_DIR = normalize(vec4(0., 0., 0., 1.) - CAM_LOC);
 
-const int NUM_INFINITE_LIGHTS = 2;
-uniform vec4 infiniteLights[NUM_INFINITE_LIGHTS];
-uniform float AMBIENT_REFLECTANCE;
+vec4 moveOutside(vec4 loc, vec4 dir) { return loc + 0.0005 * dir; }
 
-float fl = 1.0;  // focal length
-float ar = 1.0;  // aspect ratio: width / height
+mat4 trs(vec3 t, vec3 s) { return mat4(s.x,0.,0.,0., 0.,s.y,0.,0., 0.,0.,s.z,0., t.x,t.y,t.z,1.); }
+mat4 inv(vec3 t, vec3 s) { return trs(-t/s, 1.0/s); }
 
-vec4 eye_l = vec4(0., 0., fl, 1.);
-vec4 lookAt_l = vec4(0., 0., 0., 1.);
-vec4 eye_d = normalize(lookAt_l - eye_l);
+////////////////////////////////////////////////////////////////////////
 
-float surface_t, surface_t_backup;   // distance t
-vec3  surface_l, surface_l_backup;   // loc
-vec3  surface_n, surface_n_backup;   // normal
-vec3  surface_c, surface_c_backup;   // color
-vec3  surface_p, surface_p_backup;   // color properties (shiny, metallic, tranparent)
+int closest_object;
 
-void stashSurface() {
-    surface_t_backup = surface_t;
-    surface_l_backup = surface_l;
-    surface_n_backup = surface_n;
-    surface_c_backup = surface_c;
-    surface_p_backup = surface_p;
+float surface_t;  // length to intersection
+vec3  surface_c;  // color at intersection
+vec4  surface_l;
+vec4  surface_n;
+
+int tmp_object_code;
+float tmp_t;
+vec4 tmp_intersection;
+vec4 tmp_normal;
+
+////////////////////////////////////////////////////////////////////////
+
+bool intersectUnitSphere(vec4 v, vec4 w) {
+    tmp_t = ALL_FOG_AT;
+    float B = 2.0 * dot(w, v);
+    float C = dot(v, v) - 2.0;             // subtract another 1.0 to compensate for v.w * v.w
+    float d = B*B - 4.0*C;
+
+    if( d < 0.0 ) return false;
+
+    float t = (-B - sqrt(d)) / 2.0;        // t in sphere's coordinates
+    if( t <= 0.0 ) return false;
+
+    tmp_t = t;
+    tmp_intersection = v + t * w;
+    tmp_normal = vec4(tmp_intersection.xyz, 0.);
+    return true;
 }
 
-void popSurfaceStash() {
-    surface_t = surface_t_backup;
-    surface_l = surface_l_backup;
-    surface_n = surface_n_backup;
-    surface_c = surface_c_backup;
-    surface_p = surface_p_backup;
-}
-
-vec4 fixIntersectionPoint(vec4 loc, vec4 dir) {
-    return loc + 0.0005 * dir;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////
-
-void intersectAllSpheres(vec4 loc, vec4 dir) {
-    for (int i = 0; i < NUM_SPHERES; i++) {
-        mat4 INV = trsInvSpheres[i];
-
-        vec4 v = INV * loc;
-        vec4 w = normalize(INV * dir);
-
-        float B = 2.0 * dot(w, v);
-        float C = dot(v, v) - 2.0;             // subtract another 1.0 to compensate for v.w * v.w
-        float d = B*B - 4.0*C;
-
-        if( d < 0.0 ) continue;                // missed it
-
-        float t = (-B - sqrt(d)) / 2.0;        // t in sphere's coordinates
-        if( t <= 0.0 ) continue;               // behind us
-
-        vec4 p = v + t * w;                    // intersection point in sphere's coordinates
-        vec4 norm = normalize(trsSpheres[i] * vec4(p.xyz, 0.));
-        p = trsSpheres[i] * p;                 // intersection point in world coordinates
-        t = length(p - loc);
-
-        if( dot(dir, p - loc) < 0. ) continue;
-
-        if( t < surface_t ) {
-            surface_t = t;
-            surface_l = p.xyz;
-            surface_n = norm.xyz;
-            surface_c = colSpheres[i];
-            surface_p = colPropSpheres[i];
-        }
+void ifIntersectionCloserUpdate_sphere() {
+    if( tmp_t < surface_t ) {
+        surface_t = tmp_t;
+        surface_n = tmp_normal;
+        surface_l = tmp_intersection;
+        closest_object = tmp_object_code;
     }
 }
 
-//---------------------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////
 
-void intersectAllPlanes(vec4 loc, vec4 dir) {
+const int objSphere1_code = 1;
 
-    for (int i = 0; i < NUM_PLANES; i++) {
-        vec4 v = trsInvPlanes[i] * loc;
-        vec4 w = trsInvPlanes[i] * dir;
+vec3 objSphere1_color = BLUE;
 
-        vec4 l = vec4(0., 1., 0., 1.);  // plane
+mat4 objSphere1_trs = trs(objSphere1_loc, objSphere1_scale);
+mat4 objSphere1_inv = inv(objSphere1_loc, objSphere1_scale);
 
-        float t = dot(l, w);
-        if( t == 0. ) continue;    // parallel to the plane
-        if( t > 0. )  continue;    // plane is behind us
-
-        t = - dot(l, v) / t;
-        vec4 p = v + t * w;        // intersection point in plane's coordinates
-        p = trsPlanes[i] * p;      // intersection point in world coordinates
-        t = length(p - loc);       // t in world coordinates
-
-        if( t < surface_t ) {
-            surface_t = t;
-            surface_l = p.xyz;
-            surface_n = (trsPlanes[i] * vec4(0., 1., 0., 0.)).xyz;
-            surface_c = colPlanes[i];
-            surface_p = colPropPlanes[i];
-        }
-    };
-}
-
-//---------------------------------------------------------------------------------------
-
-void intersectAllCubes(vec4 loc, vec4 dir) {
-
-    for (int i = 0; i < NUM_CUBES; i++) {
-
-        vec4 v = trsInvCubes[i] * loc;
-        vec4 w = trsInvCubes[i] * dir;
-
-        float maxEnterT = -INFINITE_DISTANCE;
-        float minExitT = INFINITE_DISTANCE;
-        bool outside = false;
-
-        vec4 enterPlane;
-        vec4 enterPlaneNormal;
-
-        for (int i = 0; i < 6; i++) {   // for each face...
-            if( outside ) break;
-            float lw = dot(UNIT_CUBE_FACES[i], w);
-            float lv = dot(UNIT_CUBE_FACES[i], v);
-            
-            if( lw == 0. ) {
-                if( lv > 0. ) { outside = true; continue; }  // ray is outside the half-space
-                else continue;                               // ray is inside but parallel to half-space
-            }
-
-            if( lw < 0. ) {
-                float t = - lv / lw;
-                if( t > maxEnterT ) {
-                    maxEnterT = t;
-                    enterPlane = UNIT_CUBE_FACES[i];
-                    enterPlaneNormal = vec4(UNIT_CUBE_FACES[i].xyz, 0.);
-                }
-            }
-            if( lw > 0. ) {
-                float t = - lv / lw;
-                if( t < minExitT ) {
-                    minExitT = t;
-                }
-            }
-        }
-
-        if( maxEnterT > minExitT )  continue;  // missed it
-        if( maxEnterT < 0. )  continue;  // behind us
-
-        vec4 p = v + maxEnterT * w;    // intersection in cube's coordinates
-        p = trsCubes[i] * p;           // intersection in world coordinates
-        float t = length(loc - p);
-        if( t < surface_t ) {
-            surface_t = t;
-            surface_l = p.xyz;
-            surface_n = normalize((trsCubes[i] * enterPlaneNormal).xyz);
-            surface_c = colCubes[i];
-            surface_p = colPropCubes[i];
-        }
+void intersectSphere1(vec4 loc, vec4 dir) {
+    if( intersectUnitSphere( objSphere1_inv * loc, normalize(objSphere1_inv * dir) ) ) {
+        tmp_intersection = objSphere1_trs * tmp_intersection;
+        tmp_normal = objSphere1_trs * tmp_normal;
+        tmp_t = length(loc - tmp_intersection);
+        tmp_object_code = objSphere1_code;
     }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////
+//----------------------------------------------------------------------
 
-float intersectAll(vec4 loc, vec4 dir) {
-    surface_t = INFINITE_DISTANCE;
+const int objSphere2_code = 2;
 
-    // each of the intersectAll* functions is responsible for setting:
-    // - surface_t
-    // - surface_l
-    // - surface_n
-    // - surface_c
-    // - surface_p
-    intersectAllSpheres(loc, dir);
-    intersectAllPlanes(loc, dir);
-    intersectAllCubes(loc, dir);
+vec3 objSphere2_color = GREEN;
 
-    return surface_t;
-}
+mat4 objSphere2_trs = trs(objSphere2_loc, objSphere2_scale);
+mat4 objSphere2_inv = inv(objSphere2_loc, objSphere2_scale);
 
-float intersectAllWithBackup(vec4 loc, vec4 dir) {
-    stashSurface();
-    float ret = intersectAll(loc, dir);
-    popSurfaceStash();
-    return ret;
-}
-
-vec3 computeDirectedLight(vec3 reflectedDir) {
-    float shiny    = surface_p.x;
-    float metallic = surface_p.y;
-
-    vec3 directedColor = BLACK;
-
-    for (int idx = 0; idx < NUM_INFINITE_LIGHTS; ++idx) {
-        
-        vec3 lightDir = normalize(infiniteLights[idx].xyz);
-        vec3 cDiffused = BLACK;
-        
-        vec3 lDiffuse = vec3(0.7, 0.7, 0.7);   //TODO: color of the light
-        vec3 lSpecular = metallic * surface_c + (1. - metallic) * lDiffuse;
-
-        if( dot(lightDir, surface_n) > 0. ) {
-            vec4 s = fixIntersectionPoint(vec4(surface_l, 1.), vec4(lightDir, 0.));
-            if( intersectAllWithBackup(s, vec4(lightDir, 0.0)) != INFINITE_DISTANCE ) { continue; }
-
-            // diffused light
-            cDiffused = surface_c * lDiffuse * dot( surface_n, lightDir );
-        }
-
-        // specular light
-        vec3 cSpecular = lSpecular * pow(max(0., dot( lightDir, reflectedDir )), shiny);
-
-        //                    intensity        *       sum_of_colors
-        directedColor += infiniteLights[idx].w * (cDiffused + cSpecular);
+void intersectSphere2(vec4 loc, vec4 dir) {
+    if( intersectUnitSphere( objSphere2_inv * loc, normalize(objSphere2_inv * dir) ) ) {
+        tmp_intersection = objSphere2_trs * tmp_intersection;
+        tmp_normal = objSphere2_trs * tmp_normal;
+        tmp_t = length(loc - tmp_intersection);
+        tmp_object_code = objSphere2_code;
     }
-
-    return directedColor;
 }
 
-vec3 computeColor(vec3 reflectedDir) {
-    if( surface_t >= ALL_FOG_AT )
-        return fogColor;
+////////////////////////////////////////////////////////////////////////
 
-    vec3 ambientColor  = surface_c;
-    vec3 directedColor = computeDirectedLight(reflectedDir);
+// this function sets
+//   surface_t
+//   surface_l
+//   surface_n
+//   closes_object
 
-    vec3 color =
-    AMBIENT_REFLECTANCE         * ambientColor +
-    (1.0 - AMBIENT_REFLECTANCE) * directedColor;
+void intersectAll(vec4 loc, vec4 dir) {
+    closest_object = -1;
+    surface_t = ALL_FOG_AT;
 
-    // seen through fog
-    float stf = pow(0.5, surface_t / HALF_FOG_AT);
-    color = stf * color + (1.0 - stf) * fogColor;
+    intersectSphere1(loc, dir);
+    ifIntersectionCloserUpdate_sphere();
 
-    return color;
+    intersectSphere2(loc, dir);
+    ifIntersectionCloserUpdate_sphere();
 }
+
+////////////////////////////////////////////////////////////////////////
+
+vec3 getColor(int objCode) {
+    if( objCode == objSphere1_code )  return objSphere1_color;
+    if( objCode == objSphere2_code )  return objSphere2_color;
+
+    return BLACK;
+}
+
+////////////////////////////////////////////////////////////////////////
 
 vec3 simulateRay(vec4 loc, vec4 dir) {
-    
+
     intersectAll(loc, dir);
 
-    return computeColor(reflect(dir.xyz, surface_n));
+    if( surface_t == ALL_FOG_AT ) return FOG_COLOR;
+
+    return getColor(closest_object);
 }
+
+////////////////////////////////////////////////////////////////////////
 
 void main(void) {
 
@@ -289,28 +158,16 @@ void main(void) {
     float screenY = vUV.y;
     float time = uTime;
 
-    vec3 color = vec3(0., 0., 0.);
-    vec4 rayDir = normalize(vec4((screenX - 0.5) * ar, screenY - 0.5, -fl, 0.0));
+    vec3 color = BLACK;
+    vec4 rayDir = normalize(vec4((screenX - 0.5) * AR, screenY - 0.5, -FL, 0.0));
 
-    eye_l.z += 2.0;/*
-    eye_l.x += 1.  * sin(time / 3.0);
-    eye_l.y += 1.  * sin(time / 1.5);
-    eye_l.z += 3.  * sin(time / 2.0);
+    /*
+    CAM_LOC.x += 1.  * sin(time / 3.0);
+    CAM_LOC.y += 1.  * sin(time / 1.5);
+    CAM_LOC.z += 3.  * sin(time / 2.0);
     //*/
 
-    float reflectionScaleFactor = 1.0;
-
-    color = simulateRay(eye_l, rayDir);
-
-    // reflection ray depth 1
-    for( int i = 0; i < REFLECTION_DEPTH; i++ ) {
-        if( surface_t != INFINITE_DISTANCE ) {
-            reflectionScaleFactor *= surface_p.y;
-            rayDir = reflect(rayDir, vec4(surface_n, 0.));
-            color += reflectionScaleFactor * simulateRay(fixIntersectionPoint(vec4(surface_l, 1.0), rayDir), rayDir);
-        }
-        else break;
-    }
+    color = simulateRay(CAM_LOC, rayDir);
 
     gl_FragColor = vec4(color, 1.0);
 }

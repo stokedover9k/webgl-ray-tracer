@@ -1,94 +1,3 @@
-var X = 0;
-var Y = 1;
-var Z = 2;
-
-var spheres = [
-{
-  translate: [4.0, 0.0, -6.0],
-  scale: [0.9, 3.2, 0.9],
-  color: [0.9, 0.1, 0.1],
-  colProperties: [15.0, 0.3, 0.7]
-},
-{
-  translate: [12.0, 10.0, -20.0],
-  scale: [16.0, 16.0, 16.0],
-  color: [0.1, 0.1, 0.9],
-  colProperties: [45.0, 0.7, 0.5]
-}
-];
-
-var planes = [
-{
-  translate: [-0.5, -0.5, 0.0],
-  scale: [1.0, 1.0, 1.0],
-  color: [0.1, 0.1, 0.7],
-  colProperties: [10.0, 0.1, 0.4]
-}
-];
-
-var cubes = [
-{
-  translate: [-3.0,  1.0, -8.0],
-  scale:     [ 1.0,  1.9,  8.0],
-  color: [0.4, 1.0, 0.4],
-  colProperties: [2.0, 0.6, 0.4]
-}
-];
-
-function computeTRS(t, s) {
-  return [s[X], 0.0, 0.0, 0.0,   0.0, s[Y], 0.0, 0.0,   0.0, 0.0, s[Z], 0.0,   t[X], t[Y], t[Z], 1.0];
-}
-
-function computeInvTRS(t, s) {
-  return computeTRS([-t[X]/s[X], -t[Y]/s[Y], -t[Z]/s[Z]],  [1.0/s[X], 1.0/s[Y], 1.0/s[Z]]);
-}
-
-var trsSpheres = [];
-var trsInvSpheres = [];
-var colSpheres = [];
-var colPropSpheres = [];
-
-var trsPlanes = [];
-var trsInvPlanes = [];
-var colPlanes = [];
-var colPropPlanes = [];
-
-var trsCubes = [];
-var trsInvCubes = [];
-var colCubes = [];
-var colPropCubes = [];
-
-function makeSpheres() {
-  
-  for( var i = 0; i < spheres.length; i++ ) {
-    trsSpheres = trsSpheres.concat( computeTRS(spheres[i].translate, spheres[i].scale) );
-    trsInvSpheres = trsInvSpheres.concat( computeInvTRS(spheres[i].translate, spheres[i].scale) );
-    colSpheres = colSpheres.concat( spheres[i].color );
-    colPropSpheres = colPropSpheres.concat( spheres[i].colProperties );
-  }
-}
-
-function makePlanes() {
-
-  for( var i = 0; i < planes.length; i++ ) {
-    trsPlanes = trsPlanes.concat( computeTRS(planes[i].translate, planes[i].scale) );
-    trsInvPlanes = trsInvPlanes.concat( computeInvTRS(planes[i].translate, planes[i].scale) );
-    colPlanes = colPlanes.concat( planes[i].color );
-    colPropPlanes = colPropPlanes.concat( planes[i].colProperties );
-  }
-}
-
-function makeCubes() {
-
-  for( var i = 0; i < cubes.length; i++ ) {
-    trsCubes = trsCubes.concat( computeTRS(cubes[i].translate, cubes[i].scale) );
-    trsInvCubes = trsInvCubes.concat( computeInvTRS(cubes[i].translate, cubes[i].scale) );
-    colCubes = colCubes.concat( cubes[i].color );
-    colPropCubes = colPropCubes.concat( cubes[i].colProperties );
-  }
-}
-
-
 
 function _shape(vertices) {
     var shape = new Array();
@@ -153,18 +62,10 @@ function square() { return _shape ( [
 // HEADER INFO TO PUT AT THE START OF ANY FRAGMENT SHADER
 
     function initGL(canvas) {
-
-      makeSpheres();
-      makePlanes();
-      makeCubes();
-
         try {
             gl = canvas.getContext("experimental-webgl");
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
-
-
-
         } catch (e) { }
         if (!gl) { alert("Could not initialise WebGL, sorry :-("); }
     }
@@ -247,76 +148,6 @@ function square() { return _shape ( [
         gl.uniform1f(shaderProgram.MousePressedUniform, isMousePressed ? 1.0 : 0.0);
         gl.uniform1f(shaderProgram.TimeUniform, time); 
 
-        var addUniformMatrixArray = function(name, matrixArray) {
-          gl.uniformMatrix4fv(gl.getUniformLocation(shaderProgram, name), false, matrixArray);
-        }
-        var addColorArray = function(name, colors) {
-          gl.uniform3fv(gl.getUniformLocation(shaderProgram, name), colors);
-        }
-        var addColorProperiesArray = function(name, colProperties) {
-          gl.uniform3fv(gl.getUniformLocation(shaderProgram, name), colProperties);
-        }
-
-        addUniformMatrixArray("trsSpheres", trsSpheres);
-        addUniformMatrixArray("trsInvSpheres", trsInvSpheres);
-        addColorArray("colSpheres", colSpheres);
-        addColorProperiesArray("colPropSpheres", colPropSpheres);
-
-        addUniformMatrixArray("trsPlanes", trsPlanes);
-        addUniformMatrixArray("trsInvPlanes", trsInvPlanes);
-        addColorArray("colPlanes", colPlanes);
-        addColorProperiesArray("colPropPlanes", colPropPlanes);
-
-        addUniformMatrixArray("trsCubes", trsCubes);
-        addUniformMatrixArray("trsInvCubes", trsInvCubes);
-        addColorArray("colCubes", colCubes);
-        addColorProperiesArray("colPropCubes", colPropCubes);
-
-        var cubeFaces = [1.0, 0.0, 0.0, -1.0,   -1.0, 0.0, 0.0, -1.0,   0.0, 1.0, 0.0, -1.0,   0.0, -1.0, 0.0, -1.0,   0.0, 0.0, 1.0, -1.0,   0.0, 0.0, -1.0, -1.0];
-        gl.uniform4fv(gl.getUniformLocation(shaderProgram, "UNIT_CUBE_FACES"), 
-          cubeFaces
-        );
-
-        //XXX
-        /*
-        var sphereLocs = 
-        //  x     y     z    radius
-        [  2.1,  0.0, -2.0,   2.0,
-          -1.6,  0.0, -3.0,   1.7,
-          -0.15, 0.5, -0.95,   0.05 ];
-
-        var sphereCols = 
-        //  r    g    b
-        [  0.5, 0.5, 0.5,
-           0.9, 0.1, 0.1,
-           0.1, 0.2, 0.9  ];
-
-        var sphereColProperties = 
-        // shiny   metallic   transparency
-        [   5.0,      0.3,       0.0,
-           15.0,      0.7,       0.7,
-            7.0,      0.8,       0.2 ];
-
-        shaderProgram.sphereLocsUniform = gl.getUniformLocation(shaderProgram, "sphereLocs");
-        gl.uniform4fv(shaderProgram.sphereLocsUniform, sphereLocs);
-
-        shaderProgram.sphereColsUniform = gl.getUniformLocation(shaderProgram, "sphereCols");
-        gl.uniform3fv(shaderProgram.sphereColsUniform, sphereCols);
-
-        shaderProgram.sphereColPropertiesUniform = gl.getUniformLocation(shaderProgram, "sphereColProperties");
-        gl.uniform3fv(shaderProgram.sphereColPropertiesUniform, sphereColProperties);
-        */
-
-        var AMBIENT_REFLECTANCE = 0.05;
-        gl.uniform1f(gl.getUniformLocation(shaderProgram, "AMBIENT_REFLECTANCE"), AMBIENT_REFLECTANCE);
-
-        var infiniteLights = 
-//          x     y     z  brightness
-        [ 
-           0.5,  2.0,  2.0, 0.5 ,
-        -1.2,  1.0, -0.1, 0.5
-        ];
-        gl.uniform4fv(gl.getUniformLocation(shaderProgram, "infiniteLights"), infiniteLights);
 
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(shape.vertices), gl.STATIC_DRAW);
 

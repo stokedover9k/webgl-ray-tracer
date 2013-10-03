@@ -21,6 +21,9 @@ vec3 objSphere1_scale = vec3(0.5, 0.5, 0.5);
 vec3 objSphere2_loc = vec3(-1., 0.5, -3.);
 vec3 objSphere2_scale = vec3(0.3, 0.9, 0.5);
 
+vec3 objPlane1_loc = vec3(0., -2.0, 0.);
+vec3 objPlane1_scale = vec3(1., 1., 1.);
+
 //----------------------------------------------------------------------
 
 const float FL = 1.0;  // focal length
@@ -47,6 +50,17 @@ float tmp_t;
 vec4 tmp_intersection;
 vec4 tmp_normal;
 
+//----------------------------------------------------------------------
+
+void updateIfCloser() {
+    if( tmp_t < surface_t ) {
+        surface_t = tmp_t;
+        surface_n = tmp_normal;
+        surface_l = tmp_intersection;
+        closest_object = tmp_object_code;
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////
 
 bool intersectUnitSphere(vec4 v, vec4 w) {
@@ -66,13 +80,50 @@ bool intersectUnitSphere(vec4 v, vec4 w) {
     return true;
 }
 
-void ifIntersectionCloserUpdate_sphere() {
-    if( tmp_t < surface_t ) {
-        surface_t = tmp_t;
-        surface_n = tmp_normal;
-        surface_l = tmp_intersection;
-        closest_object = tmp_object_code;
+//----------------------------------------------------------------------
+
+const int ENTERS = 1;
+const int EXITS = 2;
+const int MISSED_INSIDE = 3;
+const int MISSED_OUTSIDE = 4;
+
+int intersectUnitPlane(vec4 v, vec4 w, vec4 plane) {
+
+    float lv = dot(plane, v);
+    float lw = dot(plane, w);
+
+    if( lw == 0. ) {
+        if( lv <= 0. ) return MISSED_INSIDE;
+        else           return MISSED_OUTSIDE;
     }
+
+    tmp_t = -lv / lw;
+    tmp_intersection = v + tmp_t * w;
+    tmp_normal = vec4(-plane.xyz, 0.);
+
+    if( lw < 0. ) return ENTERS;
+    else          return EXITS;
+}
+
+////////////////////////////////////////////////////////////////////////
+
+const int objPlane1_code = 3;
+
+vec3 objPlane1_color = RED;
+
+mat4 objPlane1_trs = trs(objPlane1_loc, objPlane1_scale);
+mat4 objPlane1_inv = inv(objPlane1_loc, objPlane1_scale);
+
+int intersectPlane1(vec4 loc, vec4 dir) {
+    vec4 plane = vec4(0., 1., 0., -1.);
+    int res = intersectUnitPlane( objPlane1_inv * loc, normalize(objPlane1_inv * dir), plane );
+    if( res == ENTERS ) {
+        tmp_intersection = objPlane1_trs * tmp_intersection;
+        tmp_normal = objPlane1_trs * tmp_normal;
+        tmp_t = length(loc - tmp_intersection);
+        tmp_object_code = objPlane1_code;
+    }
+    return res;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -124,10 +175,12 @@ void intersectAll(vec4 loc, vec4 dir) {
     surface_t = ALL_FOG_AT;
 
     intersectSphere1(loc, dir);
-    ifIntersectionCloserUpdate_sphere();
+    updateIfCloser();
 
     intersectSphere2(loc, dir);
-    ifIntersectionCloserUpdate_sphere();
+    updateIfCloser();
+
+    if( intersectPlane1(loc, dir) == ENTERS ) updateIfCloser();
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -135,6 +188,7 @@ void intersectAll(vec4 loc, vec4 dir) {
 vec3 getColor(int objCode) {
     if( objCode == objSphere1_code )  return objSphere1_color;
     if( objCode == objSphere2_code )  return objSphere2_color;
+    if( objCode == objPlane1_code  )  return objPlane1_color;
 
     return BLACK;
 }
@@ -144,9 +198,7 @@ vec3 getColor(int objCode) {
 vec3 simulateRay(vec4 loc, vec4 dir) {
 
     intersectAll(loc, dir);
-
     if( surface_t == ALL_FOG_AT ) return FOG_COLOR;
-
     return getColor(closest_object);
 }
 
@@ -171,6 +223,7 @@ void main(void) {
 
     gl_FragColor = vec4(color, 1.0);
 }
+
 </script>
 
 <script>start()</script>

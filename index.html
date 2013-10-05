@@ -26,7 +26,7 @@ vec3 FOG_COLOR = vec3(0.1, 0.1, 0.12);
 
 //----------------------------------------------------------------------
 
-vec3 objSphere1_loc = vec3(1., 0., -3.);
+vec3 objSphere1_loc = vec3(0.5, 0., -3.);
 vec3 objSphere1_scale = vec3(0.5, 0.5, 0.5);
 
 vec3 objSphere2_loc = vec3(-1., 0.5, -3.);
@@ -34,6 +34,9 @@ vec3 objSphere2_scale = vec3(0.3, 0.9, 0.5);
 
 vec3 objPlane1_loc = vec3(0., -2.0, 0.);
 vec3 objPlane1_scale = vec3(1., 1., 1.);
+
+vec3 objPyramid1_loc = vec3(-2.0, 1.3, -5.);
+vec3 objPyramid1_scale = vec3(0.7, 1.7, 0.7);
 
 //----------------------------------------------------------------------
 
@@ -111,7 +114,7 @@ int intersectUnitPlane(vec4 v, vec4 w, vec4 plane) {
 
     tmp_t = -lv / lw;
     tmp_intersection = v + tmp_t * w;
-    tmp_normal = vec4(-plane.xyz, 0.);
+    tmp_normal = vec4(plane.xyz, 0.);
 
     if( lw < 0. ) return ENTERS;
     else          return EXITS;
@@ -121,8 +124,8 @@ int intersectUnitPlane(vec4 v, vec4 w, vec4 plane) {
 
 const int objPlane1_code = 3;
 
-vec3 objPlane1_color = RED;
-vec3 objPlane1_properties = vec3(0.1, 2., 0.);
+vec3 objPlane1_color = BLUE;
+vec3 objPlane1_properties = vec3(0.5, 2., 0.);
 
 mat4 objPlane1_trs = trs(objPlane1_loc, objPlane1_scale);
 mat4 objPlane1_inv = inv(objPlane1_loc, objPlane1_scale);
@@ -179,6 +182,65 @@ void intersectSphere2(vec4 loc, vec4 dir) {
 
 ////////////////////////////////////////////////////////////////////////
 
+const int objPyramid1_code = 5;
+
+vec3 objPyramid1_color = vec3(0.9, 0.5, 0.7);
+vec3 objPyramid1_properties = vec3(0.4, 5., 0.5);
+
+mat4 objPyramid1_trs = trs(objPyramid1_loc, objPyramid1_scale);
+mat4 objPyramid1_inv = inv(objPyramid1_loc, objPyramid1_scale);
+
+vec4 plane1 = vec4( 1.,  1.,  0., -1.);
+vec4 plane2 = vec4(-1.,  1.,  0., -1.);
+vec4 plane3 = vec4( 0.,  1.,  0., -1.);
+vec4 plane4 = vec4( 0., -1.,  0., -1.);
+vec4 plane5 = vec4( 0.,  1.,  1., -1.);
+vec4 plane6 = vec4( 0.,  1., -1., -1.);
+
+float maxEnter;
+float minExit;
+
+vec4 tmp2_normal;
+
+int intersectPlaneAndUpdate(vec4 v, vec4 w, vec4 plane) {
+    int res = intersectUnitPlane(v, w, plane);
+    if( res == MISSED_OUTSIDE ) return res;
+    if( res == ENTERS && tmp_t > maxEnter ) {
+        tmp2_normal = normalize(vec4(plane.xyz, 0.));
+        maxEnter = tmp_t;
+    } else if( res == EXITS && tmp_t < minExit ) {
+        minExit = tmp_t;
+    }
+    return res;
+}
+
+int intersectPyramid1(vec4 loc, vec4 dir) {
+
+    vec4 v = objPyramid1_inv * loc;
+    vec4 w = normalize(objPyramid1_inv * dir);
+
+     maxEnter = -ALL_FOG_AT;
+     minExit  =  ALL_FOG_AT;
+
+    if( intersectPlaneAndUpdate(v, w, plane1) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
+    if( intersectPlaneAndUpdate(v, w, plane2) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
+//    if( intersectPlaneAndUpdate(v, w, plane3) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
+    if( intersectPlaneAndUpdate(v, w, plane4) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
+    if( intersectPlaneAndUpdate(v, w, plane5) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
+    if( intersectPlaneAndUpdate(v, w, plane6) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
+
+    if( maxEnter < minExit ) {
+        tmp_intersection = objPyramid1_trs * (v + maxEnter * w);
+        tmp_normal = normalize(objPyramid1_trs * tmp2_normal);
+        tmp_t = length(tmp_intersection - loc);
+        tmp_object_code = objPyramid1_code;
+        return ENTERS;
+    }
+    return MISSED_OUTSIDE;
+}
+
+////////////////////////////////////////////////////////////////////////
+
 // this function sets
 //   surface_t
 //   surface_l
@@ -189,13 +251,13 @@ void intersectAll(vec4 loc, vec4 dir) {
     closest_object = -1;
     surface_t = ALL_FOG_AT;
 
-    intersectSphere1(loc, dir);
-    updateIfCloser();
+    intersectSphere1(loc, dir);  updateIfCloser();
 
-    intersectSphere2(loc, dir);
-    updateIfCloser();
+    intersectSphere2(loc, dir);  updateIfCloser();
 
     if( intersectPlane1(loc, dir) == ENTERS ) updateIfCloser();
+
+    if( intersectPyramid1(loc, dir) == ENTERS ) updateIfCloser();
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -204,6 +266,7 @@ vec3 getColor(int objCode) {
     if( objCode == objSphere1_code )  return objSphere1_color;
     if( objCode == objSphere2_code )  return objSphere2_color;
     if( objCode == objPlane1_code  )  return objPlane1_color;
+    if( objCode == objPyramid1_code ) return objPyramid1_color;
 
     return BLACK;
 }
@@ -212,6 +275,7 @@ vec3 getProperties(int objCode) {
     if( objCode == objSphere1_code )  return objSphere1_properties;
     if( objCode == objSphere2_code )  return objSphere2_properties;
     if( objCode == objPlane1_code  )  return objPlane1_properties;
+    if( objCode == objPyramid1_code  )  return objPyramid1_properties;
 
     return vec3(0.2, 4.0, 0.);
 }

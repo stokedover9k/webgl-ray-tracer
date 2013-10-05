@@ -9,9 +9,20 @@ vec3 RED   = vec3(1.0, 0., 0.);
 vec3 GREEN = vec3(0., 1.0, 0.);
 vec3 BLUE  = vec3(0., 0., 1.0);
 
+vec3 AMBIENT_LIGHT_COLOR = vec3(0.5, 0.1, 0.3);
+const float AMBIENT_LIGHT_FACTOR = 0.1;
+
+vec3 LIGHT_1_COLOR = vec3(0.2, 0.2, 0.5);
+vec4 LIGHT_1_DIR = normalize(vec4(-1., 3., 5., 0.));
+const float LIGHT_1_INTENSITY = 0.5;
+
+vec3 LIGHT_2_COLOR = vec3(0.7, 0.4, 0.4);
+vec4 LIGHT_2_DIR = normalize(vec4(2., 1., 1., 0.));
+const float LIGHT_2_INTENSITY = 0.8;
+
 const float HALF_FOG_AT = 15.0;
 const float ALL_FOG_AT = 9.0 * HALF_FOG_AT;
-vec3 FOG_COLOR = vec3(0.5, 0.5, 0.52);
+vec3 FOG_COLOR = vec3(0.1, 0.1, 0.12);
 
 //----------------------------------------------------------------------
 
@@ -42,6 +53,7 @@ int closest_object;
 
 float surface_t;  // length to intersection
 vec3  surface_c;  // color at intersection
+vec3  surface_p;  // material properties of surface
 vec4  surface_l;
 vec4  surface_n;
 
@@ -110,6 +122,7 @@ int intersectUnitPlane(vec4 v, vec4 w, vec4 plane) {
 const int objPlane1_code = 3;
 
 vec3 objPlane1_color = RED;
+vec3 objPlane1_properties = vec3(0.1, 2., 0.);
 
 mat4 objPlane1_trs = trs(objPlane1_loc, objPlane1_scale);
 mat4 objPlane1_inv = inv(objPlane1_loc, objPlane1_scale);
@@ -119,7 +132,7 @@ int intersectPlane1(vec4 loc, vec4 dir) {
     int res = intersectUnitPlane( objPlane1_inv * loc, normalize(objPlane1_inv * dir), plane );
     if( res == ENTERS ) {
         tmp_intersection = objPlane1_trs * tmp_intersection;
-        tmp_normal = objPlane1_trs * tmp_normal;
+        tmp_normal = normalize(objPlane1_trs * tmp_normal);
         tmp_t = length(loc - tmp_intersection);
         tmp_object_code = objPlane1_code;
     }
@@ -131,6 +144,7 @@ int intersectPlane1(vec4 loc, vec4 dir) {
 const int objSphere1_code = 1;
 
 vec3 objSphere1_color = BLUE;
+vec3 objSphere1_properties = vec3(0.8, 40., 0.);
 
 mat4 objSphere1_trs = trs(objSphere1_loc, objSphere1_scale);
 mat4 objSphere1_inv = inv(objSphere1_loc, objSphere1_scale);
@@ -138,7 +152,7 @@ mat4 objSphere1_inv = inv(objSphere1_loc, objSphere1_scale);
 void intersectSphere1(vec4 loc, vec4 dir) {
     if( intersectUnitSphere( objSphere1_inv * loc, normalize(objSphere1_inv * dir) ) ) {
         tmp_intersection = objSphere1_trs * tmp_intersection;
-        tmp_normal = objSphere1_trs * tmp_normal;
+        tmp_normal = normalize(objSphere1_trs * tmp_normal);
         tmp_t = length(loc - tmp_intersection);
         tmp_object_code = objSphere1_code;
     }
@@ -148,7 +162,8 @@ void intersectSphere1(vec4 loc, vec4 dir) {
 
 const int objSphere2_code = 2;
 
-vec3 objSphere2_color = GREEN;
+vec3 objSphere2_color = vec3(0.2, 0.7, 0.7);
+vec3 objSphere2_properties = vec3(0.4, 5., 0.5);
 
 mat4 objSphere2_trs = trs(objSphere2_loc, objSphere2_scale);
 mat4 objSphere2_inv = inv(objSphere2_loc, objSphere2_scale);
@@ -156,7 +171,7 @@ mat4 objSphere2_inv = inv(objSphere2_loc, objSphere2_scale);
 void intersectSphere2(vec4 loc, vec4 dir) {
     if( intersectUnitSphere( objSphere2_inv * loc, normalize(objSphere2_inv * dir) ) ) {
         tmp_intersection = objSphere2_trs * tmp_intersection;
-        tmp_normal = objSphere2_trs * tmp_normal;
+        tmp_normal = normalize(objSphere2_trs * tmp_normal);
         tmp_t = length(loc - tmp_intersection);
         tmp_object_code = objSphere2_code;
     }
@@ -193,13 +208,75 @@ vec3 getColor(int objCode) {
     return BLACK;
 }
 
+vec3 getProperties(int objCode) {
+    if( objCode == objSphere1_code )  return objSphere1_properties;
+    if( objCode == objSphere2_code )  return objSphere2_properties;
+    if( objCode == objPlane1_code  )  return objPlane1_properties;
+
+    return vec3(0.2, 4.0, 0.);
+}
+
+vec3 lightContribution(vec4 reflectionDir, vec4 lightDir, vec3 lightColor) {
+
+    float metallic = surface_p.x;
+    float shiny = surface_p.y;
+
+    //---- diffused ----
+    vec3 cDiffuse = BLACK;
+    float diffuseFactor = dot(lightDir, surface_n);
+    if( diffuseFactor > 0. ) {
+        // TODO: check if in shadow
+        cDiffuse = surface_c * lightColor * diffuseFactor;
+    }
+
+    //---- specular ----
+    vec3 cSpecular = BLACK;
+
+    cSpecular = metallic * surface_c + (1. - metallic) * lightColor;
+    cSpecular = cSpecular * pow(max(0., dot( lightDir, reflectionDir )), shiny);
+
+    return cDiffuse + cSpecular;
+}
+
+vec3 computeDirectedLight(vec4 reflectionDir) {
+
+    vec3 light =
+    LIGHT_1_INTENSITY * lightContribution(reflectionDir, LIGHT_1_DIR, LIGHT_1_COLOR)
+    +
+    LIGHT_2_INTENSITY * lightContribution(reflectionDir, LIGHT_2_DIR, LIGHT_2_COLOR)
+    ;
+
+    return light;
+}
+
+vec3 computeColor(vec4 reflectionDir, int objCode) {
+    // surface color
+    surface_c = getColor(objCode);
+    surface_p = getProperties(objCode);
+
+    // ambient color on the surface
+    vec3 ambient = AMBIENT_LIGHT_COLOR * surface_c;
+
+    // directed color on the surface
+    vec3 directed = computeDirectedLight(reflectionDir);
+
+    // ambient + directed
+    vec3 color = AMBIENT_LIGHT_FACTOR * ambient + (1. - AMBIENT_LIGHT_FACTOR) * directed;
+
+    // adjust with fog (std = Seen Through Fog)
+    float stf = pow(0.5, surface_t / HALF_FOG_AT);
+    vec3 surface_color = stf * color + (1.0 - stf) * FOG_COLOR;
+
+    return surface_color;
+}
+
 ////////////////////////////////////////////////////////////////////////
 
 vec3 simulateRay(vec4 loc, vec4 dir) {
 
     intersectAll(loc, dir);
     if( surface_t == ALL_FOG_AT ) return FOG_COLOR;
-    return getColor(closest_object);
+    return computeColor(reflect(dir, surface_n), closest_object);
 }
 
 ////////////////////////////////////////////////////////////////////////

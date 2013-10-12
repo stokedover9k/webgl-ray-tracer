@@ -101,6 +101,7 @@ const int ENTERS = 1;
 const int EXITS = 2;
 const int MISSED_INSIDE = 3;
 const int MISSED_OUTSIDE = 4;
+const int MISSED_BEHIND = 5;
 
 int intersectUnitPlane(vec4 v, vec4 w, vec4 plane) {
 
@@ -253,11 +254,11 @@ void intersectAll(vec4 loc, vec4 dir) {
 
     intersectSphere1(loc, dir);  updateIfCloser();
 
-    intersectSphere2(loc, dir);  updateIfCloser();
+//    intersectSphere2(loc, dir);  updateIfCloser();
 
     if( intersectPlane1(loc, dir) == ENTERS ) updateIfCloser();
 
-    if( intersectPyramid1(loc, dir) == ENTERS ) updateIfCloser();
+//    if( intersectPyramid1(loc, dir) == ENTERS ) updateIfCloser();
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -344,6 +345,204 @@ vec3 simulateRay(vec4 loc, vec4 dir) {
 }
 
 ////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+mat4 makeSurfaceMatrix(float a, float b, float c, float d, float e, float f, float g, float h, float i, float j) {
+    return mat4( a, 0., 0., 0.,   f, b, 0., 0.,   e, d, c, 0.,   g, h, i, j );
+}
+
+mat4 SPHERE_MATRIX   = makeSurfaceMatrix(1., 1., 1., 0., 0., 0., 0., 0., 0., -1.);
+mat4 CYLINDER_MATRIX = makeSurfaceMatrix(1., 1., 0., 0., 0., 0., 0., 0., 0., -1.);
+mat4 CONE_MATRIX     = makeSurfaceMatrix(1., 1., -1., 0., 0., 0., 0., 0., 0., 0.);
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+float res_t_traceToSurface;
+vec4 res_normal_traceToSurface;
+vec4 res_intersect_traceToSurface;
+
+int traceToSurface(vec4 V, vec4 W, mat4 Q) {
+    float a = Q[0][0];
+    float b = Q[1][1];
+    float c = Q[2][2];
+    float d = Q[2][1];
+    float e = Q[2][0];
+    float f = Q[1][0];
+    float g = Q[3][0];
+    float h = Q[3][1];
+    float i = Q[3][2];
+    float j = Q[3][3];
+
+    float A = a * W.x * W.x + b * W.y * W.y + c * W.z * W.z + d * W.y * W.z + e * W.z * W.x + f * W.x * W.y;
+    float B = 2. * (a * V.x * W.x + b * V.y * W.y + c * V.z * W.z) + d * (V.y * W.z + V.z * W.y) + e * (V.z * W.x + V.x * W.z) + f * (V.x * W.y + V.y * W.x) + g * W.x + h * W.y + i * W.z;
+    float C = a * V.x * V.x + b * V.y * V.y + c * V.z * V.z + d * V.y * V.z + e * V.z * V.x + f * V.x * V.y + g * V.x + h * V.y + i * V.z + j;
+
+    float det = B * B - 4. * A * C;
+    if( det < 0. )   // no intersection
+        return MISSED_OUTSIDE;
+
+    float ret1 = (- B - sqrt(det)) / (2. * A);
+    float ret2 = (- B + sqrt(det)) / (2. * A);
+
+    int res;
+    if( ret1 < 0. ) {
+        if( ret2 > 0. ) {
+            res_t_traceToSurface = ret2;
+            res = EXITS;
+        } else {
+            res_t_traceToSurface = max(ret1, ret2);
+            res = MISSED_BEHIND;
+        }
+    } else {
+        if( ret1 < ret2 ) {
+            res_t_traceToSurface = ret1;
+            res = ENTERS;
+        } else {
+            res_t_traceToSurface = ret2;
+            res = EXITS;
+        }
+    }
+
+    if( res == ENTERS || res == EXITS ) {
+        res_intersect_traceToSurface = V + res_t_traceToSurface * W;
+        float x = res_intersect_traceToSurface.x;
+        float y = res_intersect_traceToSurface.y;
+        float z = res_intersect_traceToSurface.z;
+        res_normal_traceToSurface = normalize( 
+            vec4(2. * a * x + e * z + f * y + g  ,  2. * b * y + d * z + f * x + h  ,  2. * c * z + d * y + e * x + i , 0. )
+        );
+    }
+
+    return res;
+}
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+mat4 m_identity() {
+    return mat4(1., 0., 0., 0.,   0., 1., 0., 0.,   0., 0., 1., 0.,   0., 0., 0., 1.);
+}
+
+mat4 m_transpose(mat4 m) {
+    return mat4(
+        m[0][0], m[1][0], m[2][0], m[3][0],
+        m[0][1], m[1][1], m[2][1], m[3][1],
+        m[0][2], m[1][2], m[2][2], m[3][2],
+        m[0][3], m[1][3], m[2][3], m[3][3]
+        );
+}
+
+mat4 m_add_to_triangle(mat4 m) {
+    return mat4(
+        m[0][0], 0., 0., 0.,
+        m[1][0] + m[0][1], m[1][1], 0., 0.,
+        m[2][0] + m[0][2], m[2][1] + m[1][2], m[2][2], 0.,
+        m[3][0] + m[0][3], m[3][1] + m[1][3], m[3][2] + m[2][3], m[3][3]
+        );
+}
+
+mat4 m_translate(float dx, float dy, float dz) {
+    return mat4(1., 0., 0., 0. , 0., 1., 0., 0. , 0., 0., 1., 0. , dx, dy, dz, 1.);
+}
+
+mat4 m_scale(float sx, float sy, float sz) {
+    return mat4(sx, 0., 0., 0. , 0., sy, 0., 0. , 0., 0., sz, 0. , 0., 0., 0., 1.);
+}
+
+mat4 m_x_rotate(float theta) {
+    float s = sin(theta);  float c = cos(theta);
+    return mat4(1., 0., 0., 0.,   0., c, s, 0.,   0., -s, c, 0.,   0., 0., 0., 1.);
+}
+
+mat4 m_y_rotate(float theta) {
+    float s = sin(theta);  float c = cos(theta);
+    return mat4(c, 0., -s, 0.,   0., 1., 0., 0.,   s, 0., c, 0.,   0., 0., 0., 1.);
+}
+
+mat4 m_z_rotate(float theta) {
+    float s = sin(theta);  float c = cos(theta);
+    return mat4(c, s, 0., 0.,   -s, c, 0., 0.,   0., 0., 1., 0.,   0., 0., 0., 1.);
+}
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+//
+// m_transform_init();                                // 1. initialize forward and inverse matrices
+// m_transform_translate(dx, dy, dz);                 // 2. translate
+// m_transform_rotate_xyz(xTheta, yTheta, zTheta);    // 3. rotate (in that order) around x, y , z axis
+// m_transform_scale(sx, sy, sz);                     // 4. scale
+// m_transform_get_transformed(untransformed_matrix); // 5. get the transformed matrix
+//                                                    // -- or --
+// m_transform_get_fwd();                             // 5a. get forward transformation
+// m_transform_get_inv();                             // 5b. get inverse transformation
+//
+////////////////////////////////////////////////////////////////////////
+
+mat4 _tmp_m_fwd_, _tmp_m_inv_;  // matrices used by the functions in this section
+
+void m_transform_init() {
+    _tmp_m_fwd_ = m_identity();
+    _tmp_m_inv_ = m_identity();
+}
+
+void m_transform_translate(float dx, float dy, float dz) {
+    _tmp_m_fwd_ = _tmp_m_fwd_ * m_translate(dx, dy, dz);
+    _tmp_m_inv_ = m_translate(-dx, -dy, -dz) * _tmp_m_inv_;
+}
+
+void m_transform_scale(float sx, float sy, float sz) {
+    _tmp_m_fwd_ = _tmp_m_fwd_ * m_scale(sx, sy, sz);
+    _tmp_m_inv_ = m_scale(1./sx, 1./sy, 1./sz) * _tmp_m_inv_;
+}
+
+void m_transform_rotate_x(float theta) {
+    _tmp_m_fwd_ = _tmp_m_fwd_ * m_x_rotate(theta);
+    _tmp_m_inv_ = m_x_rotate(-theta) * _tmp_m_inv_;
+}
+
+void m_transform_rotate_y(float theta) {
+    _tmp_m_fwd_ = _tmp_m_fwd_ * m_y_rotate(theta);
+    _tmp_m_inv_ = m_y_rotate(-theta) * _tmp_m_inv_;
+}
+
+void m_transform_rotate_z(float theta) {
+    _tmp_m_fwd_ = _tmp_m_fwd_ * m_z_rotate(theta);
+    _tmp_m_inv_ = m_z_rotate(-theta) * _tmp_m_inv_;
+}
+
+void m_transform_rotate_xyz(float thetax, float thetay, float thetaz) {
+    m_transform_rotate_x(thetax);
+    m_transform_rotate_y(thetay);
+    m_transform_rotate_z(thetaz);
+}
+
+mat4 m_transform_get_fwd() { return _tmp_m_fwd_; }
+
+mat4 m_transform_get_inv() { return _tmp_m_inv_; }
+
+mat4 m_transform_get_transformed(mat4 untransformed) {
+    return m_add_to_triangle( m_transpose(_tmp_m_inv_) * untransformed * _tmp_m_inv_ );
+}
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+mat4 matrix_cone1;
+
+int intCone1(vec4 V, vec4 W) {
+    int status = traceToSurface(V, W, matrix_cone1);
+    return status;
+}
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
 
 void main(void) {
 
@@ -351,8 +550,21 @@ void main(void) {
     float screenY = vUV.y;
     float time = uTime;
 
+    m_transform_init();
+    m_transform_translate(0.0, 0., -3.0);
+    m_transform_rotate_xyz( time * 1., time * 1.5, time * 0.4);
+    m_transform_scale(0.5, 0.3, 0.1);
+    matrix_cone1 = m_transform_get_transformed(SPHERE_MATRIX);
+
     vec3 color = BLACK;
     vec4 rayDir = normalize(vec4((screenX - 0.5) * AR, screenY - 0.5, -FL, 0.0));
+
+    int status = intCone1(CAM_LOC, rayDir);
+
+    if( status == ENTERS ) {
+        float x = -dot(res_normal_traceToSurface, rayDir);
+        color = x * RED;
+    }
 
     /*
     CAM_LOC.x += 1.  * sin(time / 3.0);
@@ -360,7 +572,7 @@ void main(void) {
     CAM_LOC.z += 3.  * sin(time / 2.0);
     //*/
 
-    color = simulateRay(CAM_LOC, rayDir);
+    // color = simulateRay(CAM_LOC, rayDir);
 
     gl_FragColor = vec4(color, 1.0);
 }

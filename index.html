@@ -344,26 +344,15 @@ mat4 m_transform_get_transformed(mat4 untransformed) {
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-mat4 matrix_ball1, matrix_ball2;
-vec3 color_ball1 = vec3(0.7, 0.1, 0.4);
-const float prop_metallic_ball1 = 0.5;
-const float prop_phong_ball1 = 30.;
-
-int intBall1(vec4 V, vec4 W) {
-
-    int status1 = traceToSurface(V, W, matrix_ball1);
-
-    if( status1 == MISSED )  return MISSED;
-
+int subtractSurface(vec4 V, vec4 W, mat4 subtract_this) {
     float first_in = res_traceToSurface_t_in;
     float first_out = res_traceToSurface_t_out;
     stashSurface();
 
-    int status2 = traceToSurface(V, W, matrix_ball2);
-    if( status2 == MISSED ) {                          // intersected only the first object
+    int status = traceToSurface(V, W, subtract_this);
+    if( status == MISSED ) {        // intersected only the first object
         unstashSurface();
-        computeSurfaceNormalAndReflection(V, W, matrix_ball1);
-        return status1;
+        return HIT;                 // hit, because assumes that the object subtracted from is still hit
     }
 
     float second_in = res_traceToSurface_t_in;
@@ -371,26 +360,41 @@ int intBall1(vec4 V, vec4 W) {
 
     if( first_in < second_in ) {
         unstashSurface();
-        computeSurfaceNormalAndReflection(V, W, matrix_ball1);
         return HIT;
     }
 
     if( first_in > second_out ) {
         unstashSurface();
-        computeSurfaceNormalAndReflection(V, W, matrix_ball1);
         return HIT;
     }
 
     if( first_out > second_out ) {
-        computeSurfaceExitNormalAndReflection(V, W, matrix_ball2);
+        computeSurfaceExitNormalAndReflection(V, W, subtract_this);
         invertSurface();
         return HIT;
     }
+    return MISSED;
+}
 
-    else {
-        return MISSED;
-    }
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
 
+mat4 matrix_ball1, matrix_ball2;
+vec3 color_ball1 = vec3(0.7, 0.1, 0.4);
+const float prop_metallic_ball1 = 0.5;
+const float prop_phong_ball1 = 30.;
+
+int intBall1(vec4 V, vec4 W) {
+
+    int status = traceToSurface(V, W, matrix_ball1);
+    computeSurfaceNormalAndReflection(V, W, matrix_ball1);
+
+    if( status == MISSED )  return MISSED;
+
+    status = subtractSurface(V, W, matrix_ball2);
+
+    return status;
 }
 
 ////////////////////////////////////////////////////////////////////////

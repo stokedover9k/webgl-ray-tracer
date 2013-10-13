@@ -35,11 +35,12 @@ vec4 moveOutside(vec4 loc, vec4 dir) { return loc + 0.0005 * dir; }
 
 ////////////////////////////////////////////////////////////////////////
 
-const int ENTERS = 1;
-const int EXITS = 2;
-const int MISSED_INSIDE = 3;
-const int MISSED_OUTSIDE = 4;
-const int MISSED_BEHIND = 5;
+const int HIT = 10;
+const int MISSED = 11;
+
+const int IN_FRONT = 12;
+const int INSIDE = 13;
+const int BEHIND = 14;
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -110,27 +111,65 @@ mat4 makeSurfaceMatrix(float a, float b, float c, float d, float e, float f, flo
 mat4 SPHERE_MATRIX   = makeSurfaceMatrix(1., 1., 1., 0., 0., 0., 0., 0., 0., -1.);
 mat4 CYLINDER_MATRIX = makeSurfaceMatrix(1., 1., 0., 0., 0., 0., 0., 0., 0., -1.);
 mat4 CONE_MATRIX     = makeSurfaceMatrix(1., 1., -1., 0., 0., 0., 0., 0., 0., 0.);
+mat4 PLANE_MATRIX    = makeSurfaceMatrix(0., 0., 0., 0., 0., 0., 0., 0., 1., 1.);
 
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
 float res_traceToSurface_t_in, res_traceToSurface_t_out;
-vec4 res_traceToSurface_normal;
-vec4 res_traceToSurface_intersect;
-vec4 res_traceToSurface_reflectDir;
+vec4 res_traceToSurface_normal, res_traceToSurface_exitNormal;
+vec4 res_traceToSurface_enter, res_traceToSurface_exit;
+vec4 res_traceToSurface_reflectDir, res_traceToSurface_exitReflectDir;
+
+float _bu_res_traceToSurface_t_in, _bu_res_traceToSurface_t_out;
+vec4 _bu_res_traceToSurface_normal, _bu_res_traceToSurface_exitNormal;
+vec4 _bu_res_traceToSurface_enter, _bu_res_traceToSurface_exit;
+vec4 _bu_res_traceToSurface_reflectDir, _bu_res_traceToSurface_exitReflectDir;
+
+void stashSurface() {
+   _bu_res_traceToSurface_t_in = res_traceToSurface_t_in;
+   _bu_res_traceToSurface_t_out = res_traceToSurface_t_out;
+   _bu_res_traceToSurface_normal = res_traceToSurface_normal;
+   _bu_res_traceToSurface_exitNormal = res_traceToSurface_exitNormal;
+   _bu_res_traceToSurface_enter = res_traceToSurface_enter;
+   _bu_res_traceToSurface_exit = res_traceToSurface_exit;
+   _bu_res_traceToSurface_reflectDir = res_traceToSurface_reflectDir;
+   _bu_res_traceToSurface_exitReflectDir = res_traceToSurface_exitReflectDir;
+}
+
+void unstashSurface() {
+   res_traceToSurface_t_in = _bu_res_traceToSurface_t_in;
+   res_traceToSurface_t_out = _bu_res_traceToSurface_t_out;
+   res_traceToSurface_normal = _bu_res_traceToSurface_normal;
+   res_traceToSurface_exitNormal = _bu_res_traceToSurface_exitNormal;
+   res_traceToSurface_enter = _bu_res_traceToSurface_enter;
+   res_traceToSurface_exit = _bu_res_traceToSurface_exit;
+   res_traceToSurface_reflectDir = _bu_res_traceToSurface_reflectDir;
+   res_traceToSurface_exitReflectDir = _bu_res_traceToSurface_exitReflectDir;
+}
+
+void invertSurface() {
+    float tmp_in = res_traceToSurface_t_in;
+    res_traceToSurface_t_in = res_traceToSurface_t_out;
+    res_traceToSurface_t_out = tmp_in;
+
+    vec4 tmp_normal = res_traceToSurface_normal;
+    res_traceToSurface_normal = res_traceToSurface_exitNormal;
+    res_traceToSurface_exitNormal = tmp_normal;
+
+    vec4 tmp_enter = res_traceToSurface_enter;
+    res_traceToSurface_enter = res_traceToSurface_exit;
+    res_traceToSurface_exit = tmp_enter;
+
+    vec4 tmp_reflect = res_traceToSurface_reflectDir;
+    res_traceToSurface_reflectDir = res_traceToSurface_exitReflectDir;
+    res_traceToSurface_exitReflectDir = tmp_reflect;
+}
 
 int traceToSurface(vec4 V, vec4 W, mat4 Q) {
-    float a = Q[0][0];
-    float b = Q[1][1];
-    float c = Q[2][2];
-    float d = Q[2][1];
-    float e = Q[2][0];
-    float f = Q[1][0];
-    float g = Q[3][0];
-    float h = Q[3][1];
-    float i = Q[3][2];
-    float j = Q[3][3];
+    float a = Q[0][0];  float b = Q[1][1];  float c = Q[2][2];  float d = Q[2][1];  float e = Q[2][0];
+    float f = Q[1][0];  float g = Q[3][0];  float h = Q[3][1];  float i = Q[3][2];  float j = Q[3][3];
 
     float A = a * W.x * W.x + b * W.y * W.y + c * W.z * W.z + d * W.y * W.z + e * W.z * W.x + f * W.x * W.y;
     float B = 2. * (a * V.x * W.x + b * V.y * W.y + c * V.z * W.z) + d * (V.y * W.z + V.z * W.y) + e * (V.z * W.x + V.x * W.z) + f * (V.x * W.y + V.y * W.x) + g * W.x + h * W.y + i * W.z;
@@ -138,42 +177,57 @@ int traceToSurface(vec4 V, vec4 W, mat4 Q) {
 
     float det = B * B - 4. * A * C;
     if( det < 0. )   // no intersection
-        return MISSED_OUTSIDE;
+        return MISSED;
 
     float t_in  = (- B - sqrt(det)) / (2. * A);
     float t_out = (- B + sqrt(det)) / (2. * A);
 
-    if( t_in > t_out ) {
+    if( t_in > t_out ) {     // in is the smaller t, out is the bigger
         float tmp = t_in;  t_in = t_out;  t_out = tmp;
-    }
-
-
-    int status;
-    if( t_in > 0. ) {        // ENTER-EXIT
-        status = ENTERS;
-    } else {                 // ENTER behind us
-        if( t_out > 0. ) {   // ENTER behind us, EXIT in front
-            status = EXITS;
-        } else {             // ENTER and EXIT behind us
-            status = MISSED_BEHIND;
-        }
     }
 
     res_traceToSurface_t_in = t_in;
     res_traceToSurface_t_out = t_out;
 
-    if( status == ENTERS ) {    // compute normal
-        res_traceToSurface_intersect = V + res_traceToSurface_t_in * W;
-        float x = res_traceToSurface_intersect.x;
-        float y = res_traceToSurface_intersect.y;
-        float z = res_traceToSurface_intersect.z;
-        res_traceToSurface_normal = normalize( 
-            vec4(2. * a * x + e * z + f * y + g  ,  2. * b * y + d * z + f * x + h  ,  2. * c * z + d * y + e * x + i , 0. )
-        );
-        res_traceToSurface_reflectDir = normalize(reflect(W, res_traceToSurface_normal));
-    }
+    return HIT;
+}
 
-    return status;
+void computeSurfaceNormalAndReflection(vec4 V, vec4 W, mat4 Q) {
+    float a = Q[0][0];  float b = Q[1][1];  float c = Q[2][2];  float d = Q[2][1];  float e = Q[2][0];
+    float f = Q[1][0];  float g = Q[3][0];  float h = Q[3][1];  float i = Q[3][2];  float j = Q[3][3];
+
+    res_traceToSurface_enter = V + res_traceToSurface_t_in * W;
+    float x = res_traceToSurface_enter.x;
+    float y = res_traceToSurface_enter.y;
+    float z = res_traceToSurface_enter.z;
+    res_traceToSurface_normal = normalize( vec4(
+        2. * a * x + e * z + f * y + g,
+        2. * b * y + d * z + f * x + h,  
+        2. * c * z + d * y + e * x + i, 
+        0. ) );
+    res_traceToSurface_reflectDir = normalize(reflect(W, res_traceToSurface_normal));
+}
+
+void computeSurfaceExitNormalAndReflection(vec4 V, vec4 W, mat4 Q) {
+    float a = Q[0][0];  float b = Q[1][1];  float c = Q[2][2];  float d = Q[2][1];  float e = Q[2][0];
+    float f = Q[1][0];  float g = Q[3][0];  float h = Q[3][1];  float i = Q[3][2];  float j = Q[3][3];
+
+    res_traceToSurface_exit = V + res_traceToSurface_t_out * W;
+    float x = res_traceToSurface_exit.x;
+    float y = res_traceToSurface_exit.y;
+    float z = res_traceToSurface_exit.z;
+    res_traceToSurface_exitNormal = -normalize( vec4(
+        2. * a * x + e * z + f * y + g,
+        2. * b * y + d * z + f * x + h,
+        2. * c * z + d * y + e * x + i,
+        0. ) );
+    res_traceToSurface_exitReflectDir = -normalize(reflect(W, res_traceToSurface_exitNormal));
+}
+
+int surfacePosition() {
+    if( res_traceToSurface_t_in  > 0. )  return IN_FRONT;
+    if( res_traceToSurface_t_out > 0. )  return INSIDE;
+    return BEHIND;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -290,14 +344,53 @@ mat4 m_transform_get_transformed(mat4 untransformed) {
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-mat4 matrix_ball1;
+mat4 matrix_ball1, matrix_ball2;
 vec3 color_ball1 = vec3(0.7, 0.1, 0.4);
 const float prop_metallic_ball1 = 0.5;
 const float prop_phong_ball1 = 30.;
 
 int intBall1(vec4 V, vec4 W) {
-    int status = traceToSurface(V, W, matrix_ball1);
-    return status;
+
+    int status1 = traceToSurface(V, W, matrix_ball1);
+
+    if( status1 == MISSED )  return MISSED;
+
+    float first_in = res_traceToSurface_t_in;
+    float first_out = res_traceToSurface_t_out;
+    stashSurface();
+
+    int status2 = traceToSurface(V, W, matrix_ball2);
+    if( status2 == MISSED ) {                          // intersected only the first object
+        unstashSurface();
+        computeSurfaceNormalAndReflection(V, W, matrix_ball1);
+        return status1;
+    }
+
+    float second_in = res_traceToSurface_t_in;
+    float second_out = res_traceToSurface_t_out;
+
+    if( first_in < second_in ) {
+        unstashSurface();
+        computeSurfaceNormalAndReflection(V, W, matrix_ball1);
+        return HIT;
+    }
+
+    if( first_in > second_out ) {
+        unstashSurface();
+        computeSurfaceNormalAndReflection(V, W, matrix_ball1);
+        return HIT;
+    }
+
+    if( first_out > second_out ) {
+        computeSurfaceExitNormalAndReflection(V, W, matrix_ball1);
+        invertSurface();
+        return HIT;
+    }
+
+    else {
+        return MISSED;
+    }
+
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -318,6 +411,7 @@ vec3 _color_lightContribution(vec3 lightColor, vec4 dirToLight, vec4 surfaceNorm
 }
 
 vec3 computeColor(vec3 surfaceColor, float metallic, float phong) {
+
     vec3 totalColor = _color_ambient(surfaceColor);
 
     totalColor += _color_lightContribution(LIGHT_1_COLOR, LIGHT_1_DIR, res_traceToSurface_normal, res_traceToSurface_reflectDir, surfaceColor, metallic, phong);
@@ -338,10 +432,13 @@ void main(void) {
     ///////// set up object transformation here //////////
 
     m_transform_init();
-    m_transform_translate(0.0, 0., -3.0);
+    m_transform_translate(-0., 0.5, -3.0);
     m_transform_rotate_xyz( time * 1., time * 1.5, time * 0.4);
     m_transform_scale(0.5, 0.3, 0.5);
-    matrix_ball1 = m_transform_get_transformed(SPHERE_MATRIX);
+    matrix_ball1 = m_transform_get_transformed(CYLINDER_MATRIX);
+
+    m_transform_translate(-0.5, 0.5, 0.5);
+    matrix_ball2 = m_transform_get_transformed(SPHERE_MATRIX);
 
     ////////////// end set up object transform ///////////
 
@@ -350,7 +447,7 @@ void main(void) {
 
     int status = intBall1(CAM_LOC, rayDir);
 
-    if( status == ENTERS ) {
+    if( status == HIT ) {
         color = computeColor(color_ball1, prop_metallic_ball1, prop_phong_ball1);
     }
 

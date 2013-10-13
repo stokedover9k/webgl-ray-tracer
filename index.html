@@ -26,20 +26,6 @@ vec3 FOG_COLOR = vec3(0.1, 0.1, 0.12);
 
 //----------------------------------------------------------------------
 
-vec3 objSphere1_loc = vec3(0.5, 0., -3.);
-vec3 objSphere1_scale = vec3(0.5, 0.5, 0.5);
-
-vec3 objSphere2_loc = vec3(-1., 0.5, -3.);
-vec3 objSphere2_scale = vec3(0.3, 0.9, 0.5);
-
-vec3 objPlane1_loc = vec3(0., -2.0, 0.);
-vec3 objPlane1_scale = vec3(1., 1., 1.);
-
-vec3 objPyramid1_loc = vec3(-2.0, 1.3, -5.);
-vec3 objPyramid1_scale = vec3(0.7, 1.7, 0.7);
-
-//----------------------------------------------------------------------
-
 const float FL = 1.0;  // focal length
 const float AR = 1.0;  // aspect ratio: width / height
 vec4 CAM_LOC = vec4(0., 0., FL, 1.);
@@ -47,55 +33,7 @@ vec4 CAM_DIR = normalize(vec4(0., 0., 0., 1.) - CAM_LOC);
 
 vec4 moveOutside(vec4 loc, vec4 dir) { return loc + 0.0005 * dir; }
 
-mat4 trs(vec3 t, vec3 s) { return mat4(s.x,0.,0.,0., 0.,s.y,0.,0., 0.,0.,s.z,0., t.x,t.y,t.z,1.); }
-mat4 inv(vec3 t, vec3 s) { return trs(-t/s, 1.0/s); }
-
 ////////////////////////////////////////////////////////////////////////
-
-int closest_object;
-
-float surface_t;  // length to intersection
-vec3  surface_c;  // color at intersection
-vec3  surface_p;  // material properties of surface
-vec4  surface_l;
-vec4  surface_n;
-
-int tmp_object_code;
-float tmp_t;
-vec4 tmp_intersection;
-vec4 tmp_normal;
-
-//----------------------------------------------------------------------
-
-void updateIfCloser() {
-    if( tmp_t < surface_t ) {
-        surface_t = tmp_t;
-        surface_n = tmp_normal;
-        surface_l = tmp_intersection;
-        closest_object = tmp_object_code;
-    }
-}
-
-////////////////////////////////////////////////////////////////////////
-
-bool intersectUnitSphere(vec4 v, vec4 w) {
-    tmp_t = ALL_FOG_AT;
-    float B = 2.0 * dot(w, v);
-    float C = dot(v, v) - 2.0;             // subtract another 1.0 to compensate for v.w * v.w
-    float d = B*B - 4.0*C;
-
-    if( d < 0.0 ) return false;
-
-    float t = (-B - sqrt(d)) / 2.0;        // t in sphere's coordinates
-    if( t <= 0.0 ) return false;
-
-    tmp_t = t;
-    tmp_intersection = v + t * w;
-    tmp_normal = vec4(tmp_intersection.xyz, 0.);
-    return true;
-}
-
-//----------------------------------------------------------------------
 
 const int ENTERS = 1;
 const int EXITS = 2;
@@ -103,184 +41,9 @@ const int MISSED_INSIDE = 3;
 const int MISSED_OUTSIDE = 4;
 const int MISSED_BEHIND = 5;
 
-int intersectUnitPlane(vec4 v, vec4 w, vec4 plane) {
-
-    float lv = dot(plane, v);
-    float lw = dot(plane, w);
-
-    if( lw == 0. ) {
-        if( lv <= 0. ) return MISSED_INSIDE;
-        else           return MISSED_OUTSIDE;
-    }
-
-    tmp_t = -lv / lw;
-    tmp_intersection = v + tmp_t * w;
-    tmp_normal = vec4(plane.xyz, 0.);
-
-    if( lw < 0. ) return ENTERS;
-    else          return EXITS;
-}
-
 ////////////////////////////////////////////////////////////////////////
 
-const int objPlane1_code = 3;
-
-vec3 objPlane1_color = BLUE;
-vec3 objPlane1_properties = vec3(0.5, 2., 0.);
-
-mat4 objPlane1_trs = trs(objPlane1_loc, objPlane1_scale);
-mat4 objPlane1_inv = inv(objPlane1_loc, objPlane1_scale);
-
-int intersectPlane1(vec4 loc, vec4 dir) {
-    vec4 plane = vec4(0., 1., 0., -1.);
-    int res = intersectUnitPlane( objPlane1_inv * loc, normalize(objPlane1_inv * dir), plane );
-    if( res == ENTERS ) {
-        tmp_intersection = objPlane1_trs * tmp_intersection;
-        tmp_normal = normalize(objPlane1_trs * tmp_normal);
-        tmp_t = length(loc - tmp_intersection);
-        tmp_object_code = objPlane1_code;
-    }
-    return res;
-}
-
-////////////////////////////////////////////////////////////////////////
-
-const int objSphere1_code = 1;
-
-vec3 objSphere1_color = BLUE;
-vec3 objSphere1_properties = vec3(0.8, 40., 0.);
-
-mat4 objSphere1_trs = trs(objSphere1_loc, objSphere1_scale);
-mat4 objSphere1_inv = inv(objSphere1_loc, objSphere1_scale);
-
-void intersectSphere1(vec4 loc, vec4 dir) {
-    if( intersectUnitSphere( objSphere1_inv * loc, normalize(objSphere1_inv * dir) ) ) {
-        tmp_intersection = objSphere1_trs * tmp_intersection;
-        tmp_normal = normalize(objSphere1_trs * tmp_normal);
-        tmp_t = length(loc - tmp_intersection);
-        tmp_object_code = objSphere1_code;
-    }
-}
-
-//----------------------------------------------------------------------
-
-const int objSphere2_code = 2;
-
-vec3 objSphere2_color = vec3(0.2, 0.7, 0.7);
-vec3 objSphere2_properties = vec3(0.4, 5., 0.5);
-
-mat4 objSphere2_trs = trs(objSphere2_loc, objSphere2_scale);
-mat4 objSphere2_inv = inv(objSphere2_loc, objSphere2_scale);
-
-void intersectSphere2(vec4 loc, vec4 dir) {
-    if( intersectUnitSphere( objSphere2_inv * loc, normalize(objSphere2_inv * dir) ) ) {
-        tmp_intersection = objSphere2_trs * tmp_intersection;
-        tmp_normal = normalize(objSphere2_trs * tmp_normal);
-        tmp_t = length(loc - tmp_intersection);
-        tmp_object_code = objSphere2_code;
-    }
-}
-
-////////////////////////////////////////////////////////////////////////
-
-const int objPyramid1_code = 5;
-
-vec3 objPyramid1_color = vec3(0.9, 0.5, 0.7);
-vec3 objPyramid1_properties = vec3(0.4, 5., 0.5);
-
-mat4 objPyramid1_trs = trs(objPyramid1_loc, objPyramid1_scale);
-mat4 objPyramid1_inv = inv(objPyramid1_loc, objPyramid1_scale);
-
-vec4 plane1 = vec4( 1.,  1.,  0., -1.);
-vec4 plane2 = vec4(-1.,  1.,  0., -1.);
-vec4 plane3 = vec4( 0.,  1.,  0., -1.);
-vec4 plane4 = vec4( 0., -1.,  0., -1.);
-vec4 plane5 = vec4( 0.,  1.,  1., -1.);
-vec4 plane6 = vec4( 0.,  1., -1., -1.);
-
-float maxEnter;
-float minExit;
-
-vec4 tmp2_normal;
-
-int intersectPlaneAndUpdate(vec4 v, vec4 w, vec4 plane) {
-    int res = intersectUnitPlane(v, w, plane);
-    if( res == MISSED_OUTSIDE ) return res;
-    if( res == ENTERS && tmp_t > maxEnter ) {
-        tmp2_normal = normalize(vec4(plane.xyz, 0.));
-        maxEnter = tmp_t;
-    } else if( res == EXITS && tmp_t < minExit ) {
-        minExit = tmp_t;
-    }
-    return res;
-}
-
-int intersectPyramid1(vec4 loc, vec4 dir) {
-
-    vec4 v = objPyramid1_inv * loc;
-    vec4 w = normalize(objPyramid1_inv * dir);
-
-     maxEnter = -ALL_FOG_AT;
-     minExit  =  ALL_FOG_AT;
-
-    if( intersectPlaneAndUpdate(v, w, plane1) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
-    if( intersectPlaneAndUpdate(v, w, plane2) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
-//    if( intersectPlaneAndUpdate(v, w, plane3) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
-    if( intersectPlaneAndUpdate(v, w, plane4) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
-    if( intersectPlaneAndUpdate(v, w, plane5) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
-    if( intersectPlaneAndUpdate(v, w, plane6) == MISSED_OUTSIDE )  return MISSED_OUTSIDE;
-
-    if( maxEnter < minExit ) {
-        tmp_intersection = objPyramid1_trs * (v + maxEnter * w);
-        tmp_normal = normalize(objPyramid1_trs * tmp2_normal);
-        tmp_t = length(tmp_intersection - loc);
-        tmp_object_code = objPyramid1_code;
-        return ENTERS;
-    }
-    return MISSED_OUTSIDE;
-}
-
-////////////////////////////////////////////////////////////////////////
-
-// this function sets
-//   surface_t
-//   surface_l
-//   surface_n
-//   closes_object
-
-void intersectAll(vec4 loc, vec4 dir) {
-    closest_object = -1;
-    surface_t = ALL_FOG_AT;
-
-    intersectSphere1(loc, dir);  updateIfCloser();
-
-//    intersectSphere2(loc, dir);  updateIfCloser();
-
-    if( intersectPlane1(loc, dir) == ENTERS ) updateIfCloser();
-
-//    if( intersectPyramid1(loc, dir) == ENTERS ) updateIfCloser();
-}
-
-////////////////////////////////////////////////////////////////////////
-
-vec3 getColor(int objCode) {
-    if( objCode == objSphere1_code )  return objSphere1_color;
-    if( objCode == objSphere2_code )  return objSphere2_color;
-    if( objCode == objPlane1_code  )  return objPlane1_color;
-    if( objCode == objPyramid1_code ) return objPyramid1_color;
-
-    return BLACK;
-}
-
-vec3 getProperties(int objCode) {
-    if( objCode == objSphere1_code )  return objSphere1_properties;
-    if( objCode == objSphere2_code )  return objSphere2_properties;
-    if( objCode == objPlane1_code  )  return objPlane1_properties;
-    if( objCode == objPyramid1_code  )  return objPyramid1_properties;
-
-    return vec3(0.2, 4.0, 0.);
-}
-
+/*
 vec3 lightContribution(vec4 reflectionDir, vec4 lightDir, vec3 lightColor) {
 
     float metallic = surface_p.x;
@@ -334,15 +97,7 @@ vec3 computeColor(vec4 reflectionDir, int objCode) {
 
     return surface_color;
 }
-
-////////////////////////////////////////////////////////////////////////
-
-vec3 simulateRay(vec4 loc, vec4 dir) {
-
-    intersectAll(loc, dir);
-    if( surface_t == ALL_FOG_AT ) return FOG_COLOR;
-    return computeColor(reflect(dir, surface_n), closest_object);
-}
+*/
 
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
@@ -360,9 +115,10 @@ mat4 CONE_MATRIX     = makeSurfaceMatrix(1., 1., -1., 0., 0., 0., 0., 0., 0., 0.
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-float res_t_traceToSurface;
-vec4 res_normal_traceToSurface;
-vec4 res_intersect_traceToSurface;
+float res_traceToSurface_t_in, res_traceToSurface_t_out;
+vec4 res_traceToSurface_normal;
+vec4 res_traceToSurface_intersect;
+vec4 res_traceToSurface_reflectDir;
 
 int traceToSurface(vec4 V, vec4 W, mat4 Q) {
     float a = Q[0][0];
@@ -384,39 +140,40 @@ int traceToSurface(vec4 V, vec4 W, mat4 Q) {
     if( det < 0. )   // no intersection
         return MISSED_OUTSIDE;
 
-    float ret1 = (- B - sqrt(det)) / (2. * A);
-    float ret2 = (- B + sqrt(det)) / (2. * A);
+    float t_in  = (- B - sqrt(det)) / (2. * A);
+    float t_out = (- B + sqrt(det)) / (2. * A);
 
-    int res;
-    if( ret1 < 0. ) {
-        if( ret2 > 0. ) {
-            res_t_traceToSurface = ret2;
-            res = EXITS;
-        } else {
-            res_t_traceToSurface = max(ret1, ret2);
-            res = MISSED_BEHIND;
-        }
-    } else {
-        if( ret1 < ret2 ) {
-            res_t_traceToSurface = ret1;
-            res = ENTERS;
-        } else {
-            res_t_traceToSurface = ret2;
-            res = EXITS;
+    if( t_in > t_out ) {
+        float tmp = t_in;  t_in = t_out;  t_out = tmp;
+    }
+
+
+    int status;
+    if( t_in > 0. ) {        // ENTER-EXIT
+        status = ENTERS;
+    } else {                 // ENTER behind us
+        if( t_out > 0. ) {   // ENTER behind us, EXIT in front
+            status = EXITS;
+        } else {             // ENTER and EXIT behind us
+            status = MISSED_BEHIND;
         }
     }
 
-    if( res == ENTERS || res == EXITS ) {
-        res_intersect_traceToSurface = V + res_t_traceToSurface * W;
-        float x = res_intersect_traceToSurface.x;
-        float y = res_intersect_traceToSurface.y;
-        float z = res_intersect_traceToSurface.z;
-        res_normal_traceToSurface = normalize( 
+    res_traceToSurface_t_in = t_in;
+    res_traceToSurface_t_out = t_out;
+
+    if( status == ENTERS ) {    // compute normal
+        res_traceToSurface_intersect = V + res_traceToSurface_t_in * W;
+        float x = res_traceToSurface_intersect.x;
+        float y = res_traceToSurface_intersect.y;
+        float z = res_traceToSurface_intersect.z;
+        res_traceToSurface_normal = normalize( 
             vec4(2. * a * x + e * z + f * y + g  ,  2. * b * y + d * z + f * x + h  ,  2. * c * z + d * y + e * x + i , 0. )
         );
+        res_traceToSurface_reflectDir = normalize(reflect(W, res_traceToSurface_normal));
     }
 
-    return res;
+    return status;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -533,11 +290,39 @@ mat4 m_transform_get_transformed(mat4 untransformed) {
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-mat4 matrix_cone1;
+mat4 matrix_ball1;
+vec3 color_ball1 = vec3(0.7, 0.1, 0.4);
+const float prop_metallic_ball1 = 0.5;
+const float prop_phong_ball1 = 30.;
 
-int intCone1(vec4 V, vec4 W) {
-    int status = traceToSurface(V, W, matrix_cone1);
+int intBall1(vec4 V, vec4 W) {
+    int status = traceToSurface(V, W, matrix_ball1);
     return status;
+}
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+vec3 _color_ambient(vec3 surfaceColor) {
+    return AMBIENT_LIGHT_FACTOR * AMBIENT_LIGHT_COLOR * surfaceColor;
+}
+
+vec3 _color_lightContribution(vec3 lightColor, vec4 dirToLight, vec4 surfaceNormal, vec4 reflectedDir, vec3 surfaceColor, float metallic,  float phong) {
+
+    vec3 diffused = surfaceColor * lightColor * dot(dirToLight, surfaceNormal);
+    vec3 specular = metallic * surfaceColor + (1. - metallic) * lightColor;
+    specular *= pow(max(0., dot( dirToLight, reflectedDir )), phong);
+
+    return diffused + specular;
+}
+
+vec3 computeColor(vec3 surfaceColor, float metallic, float phong) {
+    vec3 totalColor = _color_ambient(surfaceColor);
+
+    totalColor += _color_lightContribution(LIGHT_1_COLOR, LIGHT_1_DIR, res_traceToSurface_normal, res_traceToSurface_reflectDir, surfaceColor, metallic, phong);
+
+    return totalColor;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -550,20 +335,23 @@ void main(void) {
     float screenY = vUV.y;
     float time = uTime;
 
+    ///////// set up object transformation here //////////
+
     m_transform_init();
     m_transform_translate(0.0, 0., -3.0);
     m_transform_rotate_xyz( time * 1., time * 1.5, time * 0.4);
-    m_transform_scale(0.5, 0.3, 0.1);
-    matrix_cone1 = m_transform_get_transformed(SPHERE_MATRIX);
+    m_transform_scale(0.5, 0.3, 0.5);
+    matrix_ball1 = m_transform_get_transformed(SPHERE_MATRIX);
+
+    ////////////// end set up object transform ///////////
 
     vec3 color = BLACK;
     vec4 rayDir = normalize(vec4((screenX - 0.5) * AR, screenY - 0.5, -FL, 0.0));
 
-    int status = intCone1(CAM_LOC, rayDir);
+    int status = intBall1(CAM_LOC, rayDir);
 
     if( status == ENTERS ) {
-        float x = -dot(res_normal_traceToSurface, rayDir);
-        color = x * RED;
+        color = computeColor(color_ball1, prop_metallic_ball1, prop_phong_ball1);
     }
 
     /*

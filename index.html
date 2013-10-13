@@ -221,7 +221,7 @@ void computeSurfaceExitNormalAndReflection(vec4 V, vec4 W, mat4 Q) {
         2. * b * y + d * z + f * x + h,
         2. * c * z + d * y + e * x + i,
         0. ) );
-    res_traceToSurface_exitReflectDir = -normalize(reflect(W, res_traceToSurface_exitNormal));
+    res_traceToSurface_exitReflectDir = normalize(reflect(W, res_traceToSurface_exitNormal));
 }
 
 int surfacePosition() {
@@ -382,7 +382,7 @@ int intBall1(vec4 V, vec4 W) {
     }
 
     if( first_out > second_out ) {
-        computeSurfaceExitNormalAndReflection(V, W, matrix_ball1);
+        computeSurfaceExitNormalAndReflection(V, W, matrix_ball2);
         invertSurface();
         return HIT;
     }
@@ -435,9 +435,9 @@ void main(void) {
     m_transform_translate(-0., 0.5, -3.0);
     m_transform_rotate_xyz( time * 1., time * 1.5, time * 0.4);
     m_transform_scale(0.5, 0.3, 0.5);
-    matrix_ball1 = m_transform_get_transformed(CYLINDER_MATRIX);
+    matrix_ball1 = m_transform_get_transformed(SPHERE_MATRIX);
 
-    m_transform_translate(-0.5, 0.5, 0.5);
+    m_transform_translate(-0.3, 0.5, 0.5);
     matrix_ball2 = m_transform_get_transformed(SPHERE_MATRIX);
 
     ////////////// end set up object transform ///////////

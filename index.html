@@ -1,7 +1,11 @@
 
 <script src="script.js"></script>
-<script id="title" type="text/plain">Ray Tracer</script>
-<script id="description" type="text/plain">Reflection, transformed objects, fog...</script>
+<script id="title" type="text/plain">Ray Tracer: Refraction</script>
+<script id="description" type="text/plain">
+1. General Quadratics
+2. Transformation Matrices
+3. Refraction
+</script>
 <script id="shader" type="x-shader/x-fragment">
 
 vec3 BLACK = vec3(0., 0., 0.);
@@ -380,26 +384,7 @@ int subtractSurface(vec4 V, vec4 W, mat4 subtract_this) {
 ////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
-mat4 matrix_ball1, matrix_ball2;
-vec3 color_ball1 = vec3(0.7, 0.1, 0.4);
-const float prop_metallic_ball1 = 0.5;
-const float prop_phong_ball1 = 30.;
-
-int intBall1(vec4 V, vec4 W) {
-
-    int status = traceToSurface(V, W, matrix_ball1);
-    computeSurfaceNormalAndReflection(V, W, matrix_ball1);
-
-    if( status == MISSED )  return MISSED;
-
-    status = subtractSurface(V, W, matrix_ball2);
-
-    return status;
-}
-
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
+vec3 BASE_COLOR = BLACK;
 
 vec3 _color_ambient(vec3 surfaceColor) {
     return AMBIENT_LIGHT_FACTOR * AMBIENT_LIGHT_COLOR * surfaceColor;
@@ -416,11 +401,83 @@ vec3 _color_lightContribution(vec3 lightColor, vec4 dirToLight, vec4 surfaceNorm
 
 vec3 computeColor(vec3 surfaceColor, float metallic, float phong) {
 
-    vec3 totalColor = _color_ambient(surfaceColor);
+    vec3 totalColor = BASE_COLOR;
+
+    totalColor += _color_ambient(surfaceColor);
 
     totalColor += _color_lightContribution(LIGHT_1_COLOR, LIGHT_1_DIR, res_traceToSurface_normal, res_traceToSurface_reflectDir, surfaceColor, metallic, phong);
 
     return totalColor;
+}
+
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+mat4 matrix_ball1, matrix_ball2;
+vec3 color_ball1 = vec3(0.3, 0.1, 0.1);
+vec3 color_ball2 = vec3(0.4, 0.2, 0.7);
+const float prop_metallic_ball1 = 0.9;
+const float prop_phong_ball1 = 50.;
+const float prop_metallic_ball2 = 0.5;
+const float prop_phong_ball2 = 15.;
+
+vec3 res_surface_color = BLACK;
+
+const float refr_index = 1.5;
+
+int intBall1(vec4 V, vec4 W) {
+
+    int status = traceToSurface(V, W, matrix_ball1);
+    computeSurfaceNormalAndReflection(V, W, matrix_ball1);
+
+    float min_t = res_traceToSurface_t_in;
+    if( status != HIT ) {
+        min_t = ALL_FOG_AT;
+    }
+
+    stashSurface();
+    int status2 = traceToSurface(V, W, matrix_ball2);
+    if( status2 == HIT && res_traceToSurface_t_in < min_t ) {
+        computeSurfaceNormalAndReflection(V, W, matrix_ball2);
+        res_surface_color = color_ball2;
+        return status2;
+    }
+    else if( status == HIT ) {                  // sphere 1 is closer
+        res_surface_color = color_ball1;
+        unstashSurface();
+
+
+        // compute refraction angle
+        // shoot refraction ray
+        // - intersect with ball 1 toward inside
+        // - intersect with ball 2 from other side
+
+        float eta = 1. / refr_index;
+        vec4 refracted = refract(W, res_traceToSurface_normal, eta);
+        vec4 V2 = V + W * res_traceToSurface_t_in + refracted * 0.005;
+        stashSurface();
+
+        int status_refr = traceToSurface(V2, refracted, matrix_ball1);
+        if( status_refr == HIT && res_traceToSurface_t_out > 0. ) {
+
+            computeSurfaceExitNormalAndReflection(V2, refracted, matrix_ball1);
+            vec4 V3 = V2 + refracted * res_traceToSurface_t_out + res_traceToSurface_exitNormal * 0.005;
+            vec4 refracted_out = refract(refracted, res_traceToSurface_exitNormal, 1.0 / eta);  
+
+            if( traceToSurface(V3, refracted_out, matrix_ball2) == HIT && res_traceToSurface_t_in > 0. ) {
+                BASE_COLOR += 0.4 * computeColor(color_ball2, prop_metallic_ball2, prop_phong_ball2);
+            }
+
+        }
+
+        unstashSurface();
+
+
+        return status;
+    }
+
+    return status;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -438,10 +495,10 @@ void main(void) {
     m_transform_init();
     m_transform_translate(-0., 0.5, -3.0);
     m_transform_rotate_xyz( time * 1., time * 1.5, time * 0.4);
-    m_transform_scale(0.5, 0.3, 0.5);
+    m_transform_scale(0.5, 0.4, 0.5);
     matrix_ball1 = m_transform_get_transformed(SPHERE_MATRIX);
 
-    m_transform_translate(-0.3, 0.5, 0.5);
+    m_transform_translate(cos( time * 1.5) * 2.2, 2.5, sin( time * 1.5) * 0.3);
     matrix_ball2 = m_transform_get_transformed(SPHERE_MATRIX);
 
     ////////////// end set up object transform ///////////
@@ -449,19 +506,13 @@ void main(void) {
     vec3 color = BLACK;
     vec4 rayDir = normalize(vec4((screenX - 0.5) * AR, screenY - 0.5, -FL, 0.0));
 
+    BASE_COLOR = BLACK;
+
     int status = intBall1(CAM_LOC, rayDir);
 
     if( status == HIT ) {
-        color = computeColor(color_ball1, prop_metallic_ball1, prop_phong_ball1);
+        color = computeColor(res_surface_color, prop_metallic_ball1, prop_phong_ball1);
     }
-
-    /*
-    CAM_LOC.x += 1.  * sin(time / 3.0);
-    CAM_LOC.y += 1.  * sin(time / 1.5);
-    CAM_LOC.z += 3.  * sin(time / 2.0);
-    //*/
-
-    // color = simulateRay(CAM_LOC, rayDir);
 
     gl_FragColor = vec4(color, 1.0);
 }

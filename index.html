@@ -358,22 +358,57 @@ int subtractSurface(vec4 V, vec4 W, mat4 subtract_this) {
     float second_in = res_traceToSurface_t_in;
     float second_out = res_traceToSurface_t_out;
 
-    if( first_in < second_in ) {
-        unstashSurface();
+    float sub_after = second_in;
+    float sub_before = second_out;
+
+    computeSurfaceNormalAndReflection(V, W, subtract_this);
+    computeSurfaceExitNormalAndReflection(V, W, subtract_this);
+
+    // if we're exiting the object first (inside it)
+
+    if( dot(W, res_traceToSurface_normal) > 0. ) {
+        sub_before = res_traceToSurface_t_in;
+        sub_after = res_traceToSurface_t_out;
+
+
+
+
+        if( sub_before < first_in && first_in < sub_after ) {
+            unstashSurface();
+            return HIT;
+        }
+
+        if( sub_before > first_in && sub_after > first_out && sub_before < first_out ) {
+            invertSurface();
+            res_traceToSurface_normal = - res_traceToSurface_normal;
+            return HIT;
+        }
+
+        if( first_out <= sub_before || first_in > sub_after ) {
+            return MISSED;
+        }
+
+        invertSurface();
+        res_traceToSurface_normal = - res_traceToSurface_normal;
         return HIT;
     }
 
-    if( first_in > second_out ) {
-        unstashSurface();
-        return HIT;
-    }
+    // if we're outside of the subtracted object
+    else {
 
-    if( first_out > second_out ) {
+        if( first_in < sub_after || first_in > sub_before ) {
+            unstashSurface();
+            return HIT;
+        }
+
+        if( first_in > sub_after && first_out < sub_before ) {
+            return MISSED;
+        }
+
         computeSurfaceExitNormalAndReflection(V, W, subtract_this);
         invertSurface();
         return HIT;
     }
-    return MISSED;
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -438,11 +473,12 @@ void main(void) {
     m_transform_init();
     m_transform_translate(-0., 0.5, -3.0);
     m_transform_rotate_xyz( time * 1., time * 1.5, time * 0.4);
-    m_transform_scale(0.5, 0.3, 0.5);
+    m_transform_scale(0.5, 0.5, 0.5);
     matrix_ball1 = m_transform_get_transformed(SPHERE_MATRIX);
 
-    m_transform_translate(-0.3, 0.5, 0.5);
-    matrix_ball2 = m_transform_get_transformed(SPHERE_MATRIX);
+    m_transform_scale(0.5, 0.5, 2.0);
+    m_transform_translate(-0.0, 0.0, 1.1);
+    matrix_ball2 = m_transform_get_transformed(CONE_MATRIX);
 
     ////////////// end set up object transform ///////////
 
@@ -454,14 +490,6 @@ void main(void) {
     if( status == HIT ) {
         color = computeColor(color_ball1, prop_metallic_ball1, prop_phong_ball1);
     }
-
-    /*
-    CAM_LOC.x += 1.  * sin(time / 3.0);
-    CAM_LOC.y += 1.  * sin(time / 1.5);
-    CAM_LOC.z += 3.  * sin(time / 2.0);
-    //*/
-
-    // color = simulateRay(CAM_LOC, rayDir);
 
     gl_FragColor = vec4(color, 1.0);
 }

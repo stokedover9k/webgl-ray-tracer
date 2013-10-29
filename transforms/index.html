@@ -1,2 +1,77 @@
 <canvas id=exampleCanvas width=400 height=400 tabindex="1"></canvas>
 <script src="transforms.js"></script>
+<script src="shapes.js"></script>
+
+<script>
+
+// GET THE CANVAS ELEMENT AND ITS DRAWING CONTEXT FROM THE DOCUMENT
+
+var canvas = document.getElementById('exampleCanvas');
+var context = canvas.getContext('2d');
+
+function clearCanvas(canvas) {
+  var w = canvas.width, h = canvas.height;
+  context.fillStyle = '#ffffff';
+  context.beginPath();
+  context.moveTo(0,0);
+  context.lineTo(w,0);
+  context.lineTo(w,h);
+  context.lineTo(0,h);
+  context.fill();
+}
+
+// YOUR FUNCTION THAT GETS CALLED EACH ANIMATION FRAME
+
+//var drawingObject = new Cube()
+var drawingObject = new Wheel(30)
+
+function animate() {
+
+  var w = canvas.width, h = canvas.height;
+
+  clearCanvas(canvas);
+
+  var x = Math.cos(time) / 2;
+  var y = Math.sin(time) / 2;
+  var matrix = Identity()
+  .translate(Vec3(x, y, 0))
+  .rotate(Vec3(time, time * 4/3, time * 5/3))
+  .scale( Vec3(
+    0.7 + 0.3 * Math.cos(3 * time),
+    0.5 + 0.4 * Math.sin(2 * time),
+    1) );
+
+  context.strokeStyle = '#000000';
+
+  drawingObject.draw(context, matrix);
+}
+
+// APPLY A SIMPLE DEPTH PERSPECTIVE TRANSFORM
+
+var focalLength = 8.0;
+
+function depthPerspective(p) {
+  var pz = focalLength / (focalLength - p[2]);
+  return [p[0] * pz, p[1] * pz, pz];
+}
+
+//--- BOILERPLATE CODE TO SUPPORT ANIMATED DRAWING ON AN HTML CANVAS ---
+
+var startTime = (new Date()).getTime(), time = startTime;
+window.requestAnimFrame = (function(callback) {
+  return window.requestAnimationFrame ||
+    window.webkitRequestAnimationFrame ||
+    window.mozRequestAnimationFrame ||
+    window.oRequestAnimationFrame ||
+    window.msRequestAnimationFrame ||
+    function(callback) { window.setTimeout(callback, 1000/60); };
+})();
+
+function tick() {
+  time = ((new Date()).getTime() - startTime) / 1000;
+  animate();
+  requestAnimFrame(function() { tick(); });
+}
+tick();
+
+</script>

@@ -58,7 +58,7 @@ function _mult_matrix_by_vec4(m, p) {
 
 function _identity()     { return [ 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1 ]; }
 function _translation(v) { return [ 1,0,0,0, 0,1,0,0, 0,0,1,0, v[0],v[1],v[2],1 ]; }
-function _scale(v)       { return [ v[x],0,0,0, 0,v[y],0,0, 0,0,v[z],0, 0,0,0,1 ]; }
+function _scale(v)       { return [ v[_iX],0,0,0, 0,v[_iY],0,0, 0,0,v[_iZ],0, 0,0,0,1 ]; }
 
 function _rotation_x(t)  {
   var s = Math.sin(t);  var c = Math.cos(t);
@@ -135,6 +135,7 @@ function mat4(vals)  { this.vals = vals; }
 
 // Other Constructors:
 //--------------------
+// 0. Identity
 // 1. Scale
 // 2. Translate
 // 3. Rotate
@@ -142,18 +143,22 @@ function mat4(vals)  { this.vals = vals; }
 // @arg v is a vec3
 // @arg t is a float angle (theta)
 
-function mat4_scale(v)    { return new mat4(_scale(v.arr())); }
+function mat4_identity()         { return new mat4(_identity()); }
 
-function mat4_transate(v) { return new mat4(_translation(v.arr())); }
+function mat4_scale(x, y, z)     { return new mat4(_scale([x,y,z])); }
 
-function mat4_rotate_x(t) { return new mat4(_rotation_x(t)); }
-function mat4_rotate_y(t) { return new mat4(_rotation_y(t)); }
-function mat4_rotate_z(t) { return new mat4(_rotation_z(t)); }
-function mat4_rotate(v)   {
-  return  mat4_rotate_x(v.x()).
-  timesRM(mat4_rotate_y(v.y())).
-  timesRM(mat4_rotate_z(v.z()));
+function mat4_translate(x, y, z) { return new mat4(_translation([x,y,z])); }
+
+function mat4_rotate_x(t)        { return new mat4(_rotation_x(t)); }
+function mat4_rotate_y(t)        { return new mat4(_rotation_y(t)); }
+function mat4_rotate_z(t)        { return new mat4(_rotation_z(t)); }
+function mat4_rotate(x, y, z)    {
+  return  mat4_rotate_x(x).
+  timesLM(mat4_rotate_y(y)).
+  timesLM(mat4_rotate_z(z));
 }
+
+mat4.prototype.arr = function() { return this.vals; };
 
 // Multiplication:
 //----------------
@@ -161,14 +166,14 @@ function mat4_rotate(v)   {
 // 2. multiply with given matrix on the left (arg x this)
 // 3. multiply with given vector on the right (this x arg)
 mat4.prototype.timesRM = function(rightMatrix) { return new mat4(_mult_matrix_by_matrix(this.vals, rightMatrix.vals)); };
-mat4.prototype.timesLM = function(leftMatrix)  { return leftMatrix.timesRM(this); }
+mat4.prototype.timesLM = function(leftMatrix)  { return new mat4(_mult_matrix_by_matrix(leftMatrix.vals, this.vals)); };
 mat4.prototype.timesRV = function(rightVector) { return rightVector.timesLM(this); };
 
 // Transformations:
 //-----------------
-mat4.prototype.scale     = function(v3) { return this.timesRM(mat4_scale(v3)); };
-mat4.prototype.translate = function(v3) { return this.timesRM(mat4_transate(v3)); };
-mat4.prototype.rotate    = function(v3) { return this.timesRM(mat4_rotate(v3)); };
-mat4.prototype.rotateX   = function(t)  { return this.timesRM(mat4_rotate_x(t)); };
-mat4.prototype.rotateY   = function(t)  { return this.timesRM(mat4_rotate_y(t)); };
-mat4.prototype.rotateZ   = function(t)  { return this.timesRM(mat4_rotate_z(t)); };
+mat4.prototype.scale     = function(x,y,z) { return this.timesLM(mat4_scale(x,y,z)); };
+mat4.prototype.translate = function(x,y,z) { return this.timesLM(mat4_translate(x,y,z)); };
+mat4.prototype.rotate    = function(x,y,z) { return this.timesLM(mat4_rotate(x,y,z)); };
+mat4.prototype.rotateX   = function(t)     { return this.timesLM(mat4_rotate_x(t)); };
+mat4.prototype.rotateY   = function(t)     { return this.timesLM(mat4_rotate_y(t)); };
+mat4.prototype.rotateZ   = function(t)     { return this.timesLM(mat4_rotate_z(t)); };

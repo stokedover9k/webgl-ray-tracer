@@ -501,25 +501,61 @@
       return vertices;
    }
 
+// @arg zPos is the position of the circle on the z coordinates
+// @arg zNormalDir should be 1 or -1 and is the direction of the normal (positive z or negative z)
+function createCircleWithZ(steps, zPos, zNormalDir) {
+  var vertices = [];
+
+  function addVertex(ang) {
+    var s = Math.sin(ang);    var c = Math.cos(ang);
+    vertices.push(c, s, zPos,   0,0,zNormalDir,  (zNormalDir * c/2+0.5),(s/2+0.5));
+  }
+
+  // draw this in triangles adding vertices in both directions of the 0-angle
+  // so that no vertices need to be repeated (GL uses last 2 vertices to
+  // complete the triangles).
+  addVertex(0);
+  for (var i = 0; i < steps/2; i++) {
+    addVertex(  Math.PI * 2 / steps * i);
+    addVertex(- Math.PI * 2 / steps * i);
+  }
+  if( steps % 2 == 0 )
+    addVertex(Math.PI);
+
+  return vertices;
+}
+
 function createCircle(steps) {
+  return createCircleWithZ(steps, 0, 1);
+}
+
+function createTube(steps) {
 
   var vertices = [];
 
   function addFace (ang1, ang2) {
-    var s1 = Math.sin(ang1);
-    var c1 = Math.cos(ang1);
-    var s2 = Math.sin(ang2);
-    var c2 = Math.cos(ang2);
-    vertices.push(0, 0, 0,  0,0,1, 0.5, 0.5);
-    vertices.push(c1,s1,0,  0,0,1, (c1/2+0.5),(s1/2+0.5));
-    vertices.push(c2,s2,0,  0,0,1, (c2/2+0.5),(s2/2+0.5));
+    var s1 = Math.sin(ang1);    var c1 = Math.cos(ang1);    var s2 = Math.sin(ang2);    var c2 = Math.cos(ang2);
+    vertices.push(c1, s1, 1,   c1, s1, 0,   ang1/Math.PI/2, 0);
+    vertices.push(c1, s1,-1,   c1, s1, 0,   ang1/Math.PI/2, 1);
+    vertices.push(c2, s2,-1,   c2, s2, 0,   ang2/Math.PI/2, 1);
+    vertices.push(c2, s2, 1,   c2, s2, 0,   ang2/Math.PI/2, 0);
+    vertices.push(c1, s1, 1,   c1, s1, 0,   ang1/Math.PI/2, 0);
   }
 
-  for (var i = 0; i < steps; i++) {
+  for( var i = 0; i < steps; i++ ) {
     var a1 = Math.PI * 2 / steps * i;
     var a2 = Math.PI * 2 / steps * (i + 1);
     addFace(a1, a2);
   }
+
+  return vertices;
+}
+
+function createCylinder(steps) {
+  var vertices = createTube(steps);
+
+  vertices = vertices.concat(createCircleWithZ(steps, 1, 1));
+  vertices = vertices.concat(createCircleWithZ(steps, -1, -1));
 
   return vertices;
 }

@@ -62,19 +62,38 @@ tabindex="1"></canvas>
     canvas1.setup = function() {
 //        this.addObject(createCube(), 'fs_phong');
 //        this.addObject(createParametric(1/24,1/12,sph), 'fs_phong');
-        this.addObject(createCircle(36), 'fs_phong');
-        this.addObject(createCircle(36), 'fs_phong');
+//        this.addObject(createCircle(7), 'fs_phong');
+        this.addObject(createCylinder(5), 'fs_phong');
+        this.addObject(createCylinder(10), 'fs_phong');
+//        this.addObject(createCircle(36), 'fs_phong');
     }
         
     canvas1.update = function() {
+
+      var upperScale = mat4_translate(0,0,-1).scale(.13, .13, .3);
+      var lowerScale = mat4_translate(0,0,-1).scale(.1, .1, .4)
+
+      var upperMat = mat4_identity()
+        .rotateX(Math.cos(3 * Math.cos(time)))
+        .rotateY(-Math.PI / 3)
+        .rotateZ(Math.sin(time))
+        .translate(-0.5, 0, 0)
+        ;
+
+      var lowerMat = mat4_identity()
+        .rotateX(Math.sin(time * 3))
+        ;
+
         var cy = .5*Math.cos(time);
         var sy = .5*Math.sin(time);
 
         var obj0 = this.objects[0];
         var obj1 = this.objects[1];
 
-        obj0.matrix = [.4,0,0,0, 0,.4,0,0, 0,0,.4,0, 0,sy,0,1];
-        obj1.matrix = [.4*cy,0,.4*sy,0, 0,.5,0,0, -.4*sy,0,.4*cy,0, 0,0,0,1];
+        obj1.matrix = upperMat.timesRM(upperScale).arr();
+
+        // parent obj matrix * move in respect to parent origin * move in your own space * transform self
+        obj0.matrix = upperMat.timesRM(mat4_translate(0,0,-0.6)).timesRM(lowerMat).timesRM(lowerScale).arr();
 
         obj0.setUniform('p', [.1,.0,0, .9,.0,0, 1,1,1,20]);
         obj1.setUniform('p', [.1,.1,0, .9,.4,0, 1,1,1,10]);

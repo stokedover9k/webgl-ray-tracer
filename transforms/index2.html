@@ -1,0 +1,124 @@
+<head>
+  <script src=gl.js></script>
+  <script src=vecs.js></script>
+  <style>body {background-color: black;}</style>
+</head>
+<body onload=glStart();>
+
+<canvas id=canvas1 data-render=gl width=400 height=400
+tabindex="1"></canvas>
+
+<!--
+<canvas id=canvas2 data-render=gl width=400 height=400
+tabindex="1"></canvas>
+-->
+
+<script id=fs_phong type=x-shader/x-fragment>
+    uniform float p[10];
+    uniform vec3 lDir;
+    varying vec3 vNormal;
+
+    void main(void) {
+
+       // NORMALIZE LENGTH OF THE INTERPOLATED NORMAL
+
+       vec3 normal = normalize(vNormal);
+
+       // COMPUTE DIFFUSE FACTOR
+
+       float ldn = dot(lDir, normal);
+       float diffuse = max(0., ldn);
+
+       // COMPUTE SPECULAR FACTOR
+
+       vec3 refl = 2. * ldn * normal - lDir;
+       float specular = pow(max(0., refl.z), p[9]);
+
+       // SUM PHONG REFLECTION COMPONENTS
+
+       vec3 c = vec3(p[0],p[1],p[2]) +
+                vec3(p[3],p[4],p[5]) * diffuse +
+                vec3(p[6],p[7],p[8]) * specular;
+
+       // APPLY GAMMA CORRECTION
+
+       gl_FragColor = vec4(pow(c.x,0.45),pow(c.y,0.45),pow(c.z,0.45),1.);
+    }
+</script>
+
+<script id=fs_uv type=x-shader/x-fragment>
+    uniform vec3 rgb;
+    varying vec3 vNormal;
+    varying vec2 vUV;
+    void main(void) {
+       float c = 2.*max(0.,dot(vec3(.3,.3,.3),normalize(vNormal)));
+       float u = .5+.5*sin(30.*vUV.x);
+       float v = .5+.5*sin(40.*vUV.y);
+       gl_FragColor = vec4(c*rgb*vec3(u,v,1.), 1.);
+    }
+</script>
+
+<script>
+    canvas1.setup = function() {
+//        this.addObject(createCube(), 'fs_phong');
+//        this.addObject(createParametric(1/24,1/12,sph), 'fs_phong');
+        this.addObject(createCircle(36), 'fs_phong');
+        this.addObject(createCircle(36), 'fs_phong');
+    }
+        
+    canvas1.update = function() {
+        var cy = .5*Math.cos(time);
+        var sy = .5*Math.sin(time);
+
+        var obj0 = this.objects[0];
+        var obj1 = this.objects[1];
+
+        obj0.matrix = [.4,0,0,0, 0,.4,0,0, 0,0,.4,0, 0,sy,0,1];
+        obj1.matrix = [.4*cy,0,.4*sy,0, 0,.5,0,0, -.4*sy,0,.4*cy,0, 0,0,0,1];
+
+        obj0.setUniform('p', [.1,.0,0, .9,.0,0, 1,1,1,20]);
+        obj1.setUniform('p', [.1,.1,0, .9,.4,0, 1,1,1,10]);
+
+        obj0.setUniform('lDir', [.57,.57,.57]);
+        obj1.setUniform('lDir', [.57,.57,.57]);
+
+        if (this.mousePressed)
+           console.log("canvas1 drag " + this.mouseX + " " + this.mouseY);
+    }
+/*
+    canvas2.setup = function() {
+        this.addObject(createCube(), 'fs_uv');
+        this.addObject(createCube(), 'fs_uv');
+    }
+        
+    canvas2.update = function() {
+        var cy = .5 * Math.cos(time);
+        var sy = .5 * Math.sin(time);
+
+        var cz = .5 * Math.cos(2 * time);
+        var sz = .5 * Math.sin(2 * time);
+
+        var obj0 = this.objects[0];
+        var obj1 = this.objects[1];
+
+        obj0.matrix = [cy,0,sy,0, 0,.3,0,0, -sy,0,cy,0, 0,0,0,1];
+        obj1.matrix = [cz,sz,0,0, -sz,cz,0,0, 0,0,.5,0, 0,0,0,1];
+
+        obj0.setUniform('rgb', [1,.5,.5]);
+        obj1.setUniform('rgb', [.5,.5,1]);
+
+        if (this.mousePressed)
+           console.log("canvas2 drag " + this.mouseX + " " + this.mouseY);
+    }
+*/
+    var sph = function(u,v) {
+       var theta = 2 * Math.PI * u,
+           phi = Math.PI * (v - .5),
+           cosT = Math.cos(theta) , cosP = Math.cos(phi) ,
+           sinT = Math.sin(theta) , sinP = Math.sin(phi) ;
+       return [ cosT * cosP, sinT * cosP, sinP ];
+    }
+
+</script>
+
+</body>

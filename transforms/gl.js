@@ -20,6 +20,11 @@
       vNormal = normalize((uNMatrix * vec4(aVertexNormal, 0.0)).xyz);\
       vXYZ = aVertexPosition;\
       vUV = aVertexUV;\
+      float a = dot(aVertexUV, vec2(3., 1.));\
+      float x = sqrt(a) * a + 1. / a + a;\
+      float backup = vXYZ.x;\
+      vXYZ.x = x * a;\
+      vXYZ.x = backup;\
    }"
 
 // FUNCTION TO RETURN THE IDENTITY MATRIX:
@@ -495,3 +500,26 @@
 
       return vertices;
    }
+
+function createCircle(steps) {
+
+  var vertices = [];
+
+  function addFace (ang1, ang2) {
+    var s1 = Math.sin(ang1);
+    var c1 = Math.cos(ang1);
+    var s2 = Math.sin(ang2);
+    var c2 = Math.cos(ang2);
+    vertices.push(0, 0, 0,  0,0,1, 0.5, 0.5);
+    vertices.push(c1,s1,0,  0,0,1, (c1/2+0.5),(s1/2+0.5));
+    vertices.push(c2,s2,0,  0,0,1, (c2/2+0.5),(s2/2+0.5));
+  }
+
+  for (var i = 0; i < steps; i++) {
+    var a1 = Math.PI * 2 / steps * i;
+    var a2 = Math.PI * 2 / steps * (i + 1);
+    addFace(a1, a2);
+  }
+
+  return vertices;
+}

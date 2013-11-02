@@ -89,31 +89,32 @@ function createCylinder(steps) {
   return vertices;
 }
 
-// Near and far in the argument names indicates near and far planes (which are parallel).
-// ARGUMENTS: near-left, near-right, near-top, near-bottom,   far-left, far-right, far-top, far-bottom
-function SquareFrustum(nleft, nright, ntop, nbot)
-{
-  var nlbot = new vec3(nleft, nbot, 1);
-  var nltop = new vec3(nleft, ntop, 1);
-  var nrtop = new vec3(nrigth, ntop, 1);
-  var nrbot = new vec3(nright, nbot, 1);
-  var flbot = new vec3(fleft, nbot, -1);
-  var fltop = new vec3(fleft, ntop, -1);
-  var frtop = new vec3(frigth, ntop, -1);
-  var frbot = new vec3(fright, nbot, -1);
-
-  var topNormal = frtop.minus(nrtop).cross(new vec3(-1, 0, 0)).normalized();
-  var botNormal = flbot.minus(nlbot).cross(new vec3( 1, 0, 0)).normalized();
-  var leftNormal = fltop.minus(nltop).cross(new vec3(0, -1, 0)).normalized();
-  var rightNormal = frbot.minus(nrbot).cross(new vec3(0, 1, 0)).normalized();
-  var nearNormal = new vec3(0, 0, 1);
-  var farNormal = new vec3(0, 0, -1);
-  
+// Creates a parametric sheet of X-by-Y vertices.
+// Surface is made using triangle strips.
+// @arg getPoint is a function(u, v) returning [x, y, z]
+// @arg getNormal is a function(u, v) returning [x, y, z]
+function createParametric (X, Y, getPoint, getNormal) {
   var vertices = [];
-  function addVertex(p, n, u, v) {  vertices.push(p.x(), p.y(), p.z(),   n.x(), n.y(), n.z(),   u, v);  }
 
-  addVertex(fltop, leftNormal, 0, 1);
-  addVertex(nltop, leftNormal, 1, 1);
-  addVertex(flbot, leftNormal, 0, 0);
-  addVertex(nlbot, leftNormal, 1, 0);
+  function flipX(x, y) { return ( y % 2 == 0 ) ? x : X - x; }
+
+  function addVertexUV(u, v) {
+    var normal = getNormal(u, v);
+    var point = getPoint(u, v);
+    vertices.push(point[0],point[1],point[2],  normal[0],normal[1],normal[2],  u,v);
+  }
+
+  function addVertex (x, y) { addVertexUV(x/X, y/Y); }
+  function addDiag (x, y) { addVertex(flipX(x, y), y+1);    addVertex(flipX(x+1, y), y); }
+  
+  for (var y = 0; y < Y; y++) {
+    addVertex(flipX(0, y), y);
+
+    for (var x = 0; x < X; x++) { addDiag(x, y); };
+
+    addVertex(flipX(X, y), y+1);
+    addVertex(flipX(X, y), y+1);
+  };
+
+  return vertices;
 }

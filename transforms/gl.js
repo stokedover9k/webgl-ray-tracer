@@ -357,6 +357,28 @@
       gl.useProgram(sProgram);
       gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
 
+      if (! (obj.textureSrc === undefined))
+        if (obj.texture === undefined) {
+          var image = new Image();
+          image.onload = function() {
+            var gl = this.gl;
+            gl.bindTexture(gl.TEXTURE_2D, this.obj.texture = gl.createTexture());
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+            gl.generateMipmap(gl.TEXTURE_2D);
+            gl.bindTexture(gl.TEXTURE_2D, null);
+          };
+          image.gl  = gl;
+          image.obj = obj;
+          image.src = obj.textureSrc;
+        }
+        else {
+          gl.activeTexture(gl.TEXTURE0);
+          gl.bindTexture(gl.TEXTURE_2D, obj.texture);
+          gl.uniform1i(gl.getUniformLocation(sProgram, "uSampler"), 0);
+        }
+
       // SET VALUES FOR THIS FRAME FOR ALL DEFAULT UNIFORMS:
 
       gl.vertexAttribPointer( sProgram.vertexPositionAttribute,

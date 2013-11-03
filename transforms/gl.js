@@ -27,6 +27,7 @@
       vXYZ.x = backup;\
    }"
 
+
 // FUNCTION TO RETURN THE IDENTITY MATRIX:
 
    function identity() { return [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]; }
@@ -138,6 +139,8 @@
       shaderProgram.pMatrixUniform=gl.getUniformLocation(shaderProgram, "uPMatrix");
       shaderProgram.oMatrixUniform=gl.getUniformLocation(shaderProgram, "uOMatrix");
       shaderProgram.nMatrixUniform=gl.getUniformLocation(shaderProgram, "uNMatrix");
+
+      shaderProgram.timeUniform=gl.getUniformLocation(shaderProgram, "uTime");
 
       // PREPARE TO CREATE THE LOCATIONS FOR THE SHADER'S OTHER ATTRIBUTES:
 
@@ -405,6 +408,7 @@
       gl.uniformMatrix4fv(sProgram.pMatrixUniform, false, perspective(10));
       gl.uniformMatrix4fv(sProgram.oMatrixUniform, false, obj.matrix);
       gl.uniformMatrix4fv(sProgram.nMatrixUniform, false, normalMatrix(obj.matrix));
+      gl.uniform1f(sProgram.timeUniform, time);
 
       // SET THE VALUES FOR THIS FRAME FOR ALL USER DEFINED UNIFORMS:
 

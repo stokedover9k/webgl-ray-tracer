@@ -16,6 +16,7 @@
 <body onload=glStart();>
 
 <canvas id=canvas1 data-render=gl width=400 height=400 tabindex="1"></canvas>
+<canvas id=canvas2 data-render=gl width=400 height=400 tabindex="1"></canvas>
 
 <script id=fs_wood type=x-shader/x-fragment>
    vec3 ungammaCorrect(vec3 c) { return vec3(pow(c.x,2.222),pow(c.y,2.222),pow(c.z,2.222)); }

@@ -27,6 +27,7 @@
       vXYZ.x = backup;\
    }"
 
+var DEBUG_COUNT = 0;
 
 // FUNCTION TO RETURN THE IDENTITY MATRIX:
 
@@ -405,10 +406,10 @@
                               vBuffer.stride, 
                               vBuffer.uvOffset 
                               );
+      gl.uniform1f(sProgram.timeUniform, time);
       gl.uniformMatrix4fv(sProgram.pMatrixUniform, false, perspective(10));
       gl.uniformMatrix4fv(sProgram.oMatrixUniform, false, obj.matrix);
       gl.uniformMatrix4fv(sProgram.nMatrixUniform, false, normalMatrix(obj.matrix));
-      gl.uniform1f(sProgram.timeUniform, time);
 
       // SET THE VALUES FOR THIS FRAME FOR ALL USER DEFINED UNIFORMS:
 

@@ -45,7 +45,9 @@ canvas2.setup = function() {
    varying vec3 vXYZ;\
    varying vec2 vUV;\
    \
-   vec3 distorted(vec3 p, vec3 n) { return p + sin(p.x * 10.) / 5. * n; }\
+   vec3 distorted(vec3 p, vec3 n) {\
+     return p + sin(p.y * p.y * 5. + p.x * p.x * 2. + 20. * uTime) / 10. * n;\
+   }\
    \
    float epsi = 0.0001;\
    \
@@ -76,12 +78,12 @@ canvas2.setup = function() {
    }"
 
   this.addObject(createParametric(20, 20, getPoint, getNormal), 'fs_wood');
-  this.objects[0].textureSrc = "img/tex-dry-rock.jpg";
+  this.objects[0].textureSrc = "img/leopard.jpg";
 }
 
 canvas2.update = function() {
 
-    var M0 = mat4_identity().scale(.5,.5,.5).rotateX(Math.sin(time / 3) * 3).rotateZ(Math.cos(time / 4) * 3).translate(0,0,-1);
+    var M0 = mat4_identity().scale(.8,.8,.8).rotateX(Math.sin(time / 3) * 3).rotateZ(Math.cos(time / 4) * 3).translate(0,0,-1);
     var obj0 = this.objects[0];
     obj0.matrix = M0.arr();
     obj0.setUniform('p', [.1,.0,0, .9,.0,0, 1,1,1,20]);

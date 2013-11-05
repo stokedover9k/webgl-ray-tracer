@@ -69,7 +69,7 @@ var DEBUG_COUNT = 0;
                canvas.getContext("experimental-webgl");
           gl.viewportWidth = canvas.width;
           gl.viewportHeight = canvas.height;
-          gl.clearColor(.7, .7, .7, 1.0);
+          gl.clearColor(.1, .1, .1, 1.0);
           gl.enable(gl.DEPTH_TEST);
        } catch (e) {
           alert("Could not initialise WebGL.");

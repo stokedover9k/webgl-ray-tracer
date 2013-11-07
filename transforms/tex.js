@@ -1,18 +1,3 @@
-function getPoint (u, v) { return [u*2-1, v*2-1, 0]; }
-function getNormal(u, v) { return [0,0,1]; }
-
-function getSpherePoint(u, v) {
-  var x, y, z, r;
-  y = Math.sin(u * Math.PI * 2);
-  r = Math.cos(u * Math.PI * 2);
-  x = r * Math.cos(v * Math.PI);
-  z = r * Math.sin(v * Math.PI);
-  return [x, y, z];
-}
-function getSphereNormal(u, v) {
-  return getSpherePoint(u, v);
-}
-
 
 canvas1.setup = function() {
   this.addObject(createParametric(16, 8, getSpherePoint, getSphereNormal), 'fs_wood');

@@ -270,6 +270,8 @@ var DEBUG_COUNT = 0;
                          break;
                       }
                 }
+
+                return obj;
              }
 
              // INIT THE CANVAS'S EVENT HANDLERS, THEN CALL THE USER'S SETUP FUNCTION:

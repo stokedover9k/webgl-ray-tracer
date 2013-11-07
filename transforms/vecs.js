@@ -174,9 +174,9 @@ mat4.prototype.timesRV = function(rightVector) { return rightVector.timesLM(this
 
 // Transformations:
 //-----------------
-mat4.prototype.scale     = function(x,y,z) { return this.timesLM(mat4_scale(x,y,z)); };
-mat4.prototype.translate = function(x,y,z) { return this.timesLM(mat4_translate(x,y,z)); };
-mat4.prototype.rotate    = function(x,y,z) { return this.timesLM(mat4_rotate(x,y,z)); };
-mat4.prototype.rotateX   = function(t)     { return this.timesLM(mat4_rotate_x(t)); };
-mat4.prototype.rotateY   = function(t)     { return this.timesLM(mat4_rotate_y(t)); };
-mat4.prototype.rotateZ   = function(t)     { return this.timesLM(mat4_rotate_z(t)); };
+mat4.prototype.scale     = function(x,y,z) { return this.timesRM(mat4_scale(x,y,z)); };
+mat4.prototype.translate = function(x,y,z) { return this.timesRM(mat4_translate(x,y,z)); };
+mat4.prototype.rotate    = function(x,y,z) { return this.timesRM(mat4_rotate(x,y,z)); };
+mat4.prototype.rotateX   = function(t)     { return this.timesRM(mat4_rotate_x(t)); };
+mat4.prototype.rotateY   = function(t)     { return this.timesRM(mat4_rotate_y(t)); };
+mat4.prototype.rotateZ   = function(t)     { return this.timesRM(mat4_rotate_z(t)); };

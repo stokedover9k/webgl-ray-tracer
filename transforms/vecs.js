@@ -96,10 +96,10 @@ vec3.prototype.normalized = function()  { var l = this.length();  return new vec
 vec3.prototype.loc4       = function()  { return this.toVec4(1); };
 vec3.prototype.dir4       = function()  { return this.toVec4(0); };
 vec3.prototype.toVec4     = function(w) { return new vec4(this.x(), this.y(), this.z(), w); };
-vec4.prototype.dot        = function(v) { return new vec3(this.x() * v.x(), this.y * v.y(), this.z() * v.z()); };
-vec4.prototype.cross      = function(v) { return new vec3(this.y() * v.z() - this.z() * v.y(),   this.z() * v.x() - this.x() * v.z(),   this.x() * v.y() - this.y() * v.x() ); };
-vec4.prototype.plus       = function(v) { return new vec3(this.x() + v.x(), this.y + v.y(), this.z() + v.z()); };
-vec4.prototype.minus      = function(v) { return new vec3(this.x() - v.x(), this.y - v.y(), this.z() - v.z()); };
+vec3.prototype.dot        = function(v) { return new vec3(this.x() * v.x(), this.y() * v.y(), this.z() * v.z()); };
+vec3.prototype.cross      = function(v) { return new vec3(this.y() * v.z() - this.z() * v.y(),   this.z() * v.x() - this.x() * v.z(),   this.x() * v.y() - this.y() * v.x() ); };
+vec3.prototype.plus       = function(v) { return new vec3(this.x() + v.x(), this.y() + v.y(), this.z() + v.z()); };
+vec3.prototype.minus      = function(v) { return new vec3(this.x() - v.x(), this.y() - v.y(), this.z() - v.z()); };
 
 vec3.prototype.timesLM    = function(leftMatrix) {
   var v = _mult_matrix_by_vec3(leftMatrix.vals, this.coords);
@@ -123,7 +123,7 @@ vec4.prototype.normalized = function()  { var l = this.length();  return new vec
 vec4.prototype.loc4       = function()  { return new vec4(this.x(), this.y(), this.z(), 1); };
 vec4.prototype.dir4       = function()  { return this.normalized(); };
 vec4.prototype.toVec4     = function(w) { return this; };
-vec4.prototype.dot        = function(v) { return new vec4(this.x() * v.x(), this.y * v.y(), this.z() * v.z(), this.w() * v.w()); };
+vec4.prototype.dot        = function(v) { return new vec4(this.x() * v.x(), this.y() * v.y(), this.z() * v.z(), this.w() * v.w()); };
 
 vec4.prototype.timesLM    = function(leftMatrix) {
   var v = _mult_matrix_by_vec4(leftMatrix.vals, this.coords);

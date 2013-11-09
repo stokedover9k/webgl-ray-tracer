@@ -54,6 +54,30 @@ function createCircleWithZ(steps, zPos, zNormalDir) {
   return vertices;
 }
 
+function createPartCircle(steps, missingArc) {
+  var vertices = [];
+
+  var arc = 2 * Math.PI - missingArc;
+  var stepArc = arc / (steps-1);
+
+  var h = 1;
+
+  function addSide(ang) {
+    var s1 = Math.sin(ang);
+    var c1 = Math.cos(ang);
+    
+    vertices.push(c1,s1,0,  c1,s1,0,  0,0)
+    vertices.push(c1,s1,h,  c1,s1,0,  0,0)
+  }
+
+  for (var i = 0; i < steps; i++) {
+    addSide( arc / steps * i );
+  };
+
+  return vertices;
+}
+
+
 function createCircle(steps) {
   return createCircleWithZ(steps, 0, 1);
 }
@@ -89,21 +113,6 @@ function createCylinder(steps) {
   return vertices;
 }
 
-function getPoint (u, v) { return [u*2-1, v*2-1, 0]; }
-function getNormal(u, v) { return [0,0,1]; }
-
-function getSpherePoint(u, v) {
-  var x, y, z, r;
-  y = Math.sin(u * Math.PI * 2);
-  r = Math.cos(u * Math.PI * 2);
-  x = r * Math.cos(v * Math.PI);
-  z = r * Math.sin(v * Math.PI);
-  return [x, y, z];
-}
-function getSphereNormal(u, v) {
-  return getSpherePoint(u, v);
-}
-
 // Creates a parametric sheet of X-by-Y vertices.
 // Surface is made using triangle strips.
 // @arg getPoint is a function(u, v) returning [x, y, z]
@@ -134,4 +143,21 @@ function createParametric (X, Y, getPoint, getNormal) {
   return vertices;
 }
 
+function getPoint (u, v) { return [u*2-1, v*2-1, 0]; }
+function getNormal(u, v) { return [0,0,1]; }
 
+function getSpherePoint(u, v) {
+  var x, y, z, r;
+  y = Math.sin(u * Math.PI * 2);
+  r = Math.cos(u * Math.PI * 2);
+  x = r * Math.cos(v * Math.PI);
+  z = r * Math.sin(v * Math.PI);
+  return [x, y, z];
+}
+function getSphereNormal(u, v) {
+  return getSpherePoint(u, v);
+}
+
+function createSphere(N, M) {
+  return createParametric(N, M, getSpherePoint, getSphereNormal);
+}

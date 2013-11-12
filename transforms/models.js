@@ -161,3 +161,36 @@ function getSphereNormal(u, v) {
 function createSphere(N, M) {
   return createParametric(N, M, getSpherePoint, getSphereNormal);
 }
+
+function createConePart(steps, topWidthRatio, arc) {
+
+  arc = arc || 2 * Math.PI;
+  var yBot = -1, yTop = 1;
+
+  var vertices = [];
+
+  var r1 = 1;  var r2 = topWidthRatio;
+
+  var up = new vec3(0,1,0);
+
+  function addSide(ang) {
+    var s = Math.sin(ang);  var c = Math.cos(ang);
+
+    var bot = new vec3(r1*c, yBot, r1*s);
+    var top = new vec3(r2*c, yTop, r2*s);
+
+    var tangent = bot.cross(up);
+    var diff = bot.minus(top);
+    var normal = tangent.cross(diff).normalized();
+
+    vertices.push(top.x(),top.y(),top.z(),  normal.x(),normal.y(),normal.z(),  0,0);
+    vertices.push(bot.x(),bot.y(),bot.z(),  normal.x(),normal.y(),normal.z(),  0,0);
+  }
+
+  var stepArc = arc / (steps-1);
+  for (var i = 0; i < steps; i++) {
+    addSide(stepArc * i);
+  }
+
+  return vertices;
+}

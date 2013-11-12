@@ -15,7 +15,8 @@ function Segment(obj, animate) {
   this.children = [];
 }
 
-Segment.prototype.addChild = function(child) { this.children.push(child); };
+// adds object to children list and returns child
+Segment.prototype.addChild = function(child) { this.children.push(child);  return child; };
 
 // Animate this segment, then animate its children relative to this.
 Segment.prototype.animateAll = function() {

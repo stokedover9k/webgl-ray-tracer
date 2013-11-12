@@ -1,5 +1,5 @@
 
-FILES="gl.js matrix-stack.js models.js swinging.* vecs.js flower-1.js anim.html segments.js flower-2.js"
+FILES="gl.js matrix-stack.js models.js swinging.* vecs.js flower-1.js anim.html segments.js flower-2.js grab.html grab.js"
 
 zip swing.zip ${FILES}
 

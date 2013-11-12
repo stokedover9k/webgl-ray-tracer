@@ -8,15 +8,16 @@ function setUniforms(obj, colors) {
 
 function fingerObjFactory() {
   return createConePart(8, 1.2, Math.PI * 1.5);
-
 }
 
-function rootOfAllEvil (context) {
+// a marker for the world's origin
+function rootOfAllEvil (context, scale) {
+  scale = scale || 1
   return new Segment(
     context.addObject(createSphere(8,4), 'fs_phong'),
     function () {
       this.modelT = MSScale(.5,.5,.5);
-      this.worldT = MSScale(.2,.2,.2).then(MSTranslate(0,-.5,0)).then(MSRotateY(TIME));
+      this.worldT = MSScale(scale,scale,scale).then(MSTranslate(0,-.5,0)).then(MSRotateY(TIME));
       setUniforms(this.obj, [.1,.1,.1, .9,.0,0, 1,1,1,20]);
     });
 }
@@ -58,6 +59,7 @@ function createFinger(context, worldOffset) {
         setUniforms(this.obj);
       });
 
+    // add joint sphere
     finger.addChild( new Segment(
       context.addObject(createSphere(8,4), 'fs_phong'),
       function () {
@@ -78,9 +80,10 @@ function createFinger(context, worldOffset) {
 
 
 
-canvasFinger.setup = function () {
-  this.root = rootOfAllEvil(this);
+function createHand (context, root, worldTransform) {
 
+  worldTransform = worldTransform || MSIdentity();
+  
   var THUMB = 0;
 
   function rot (i) {
@@ -102,14 +105,18 @@ canvasFinger.setup = function () {
   }
 
   for (var i = 0; i < 5; i++) {
-    var worldTransform =
-      MSRotateZ(rot(i))
+    var trans = worldTransform
+      .then(MSRotateZ(rot(i)))
       .then(MSTranslate(transX(i),transY(i),0))
       .then(MSScale(sc(i), sc(i), sc(i)));
-    this.root.addChild( createFinger(this, worldTransform) );
+    root.addChild( createFinger(context, trans) );
   };
+}
 
+canvasFinger.setup = function () {
+  this.root = rootOfAllEvil(this, .2);
 
+  createHand(this, this.root);
 }
 
 canvasFinger.update = function () {

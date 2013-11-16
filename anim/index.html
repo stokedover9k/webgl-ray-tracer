@@ -1,0 +1,80 @@
+<head>
+  <script src=gl.js></script>
+  <script src=vecs.js></script>
+  <script src=models.js></script>
+  <script src=matrix-stack.js></script>
+  <script src=segments.js></script>
+  <style>
+  body {
+    max-width: 60em;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .canvas-reel {
+    width: 400;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  canvas {
+    margin-top: 2em;
+  }
+  </style>
+</head>
+<body onload=glStart();>
+
+<div class="canvas-reel"><canvas id=staging data-render=gl width=400 height=400 tabindex="1"></canvas></div>
+
+<script id=fs_phong type=x-shader/x-fragment>
+    uniform float p[10];
+    uniform vec3 lDir;
+    varying vec3 vNormal;
+
+    void main(void) {
+
+       // NORMALIZE LENGTH OF THE INTERPOLATED NORMAL
+
+       vec3 normal = normalize(vNormal);
+
+       // COMPUTE DIFFUSE FACTOR
+
+       float ldn = dot(lDir, normal);
+       float diffuse = max(0., ldn);
+
+       // COMPUTE SPECULAR FACTOR
+
+       vec3 refl = 2. * ldn * normal - lDir;
+       float specular = pow(max(0., refl.z), p[9]);
+
+       // SUM PHONG REFLECTION COMPONENTS
+
+       vec3 c = vec3(p[0],p[1],p[2]) +
+                vec3(p[3],p[4],p[5]) * diffuse +
+                vec3(p[6],p[7],p[8]) * specular;
+
+       // APPLY GAMMA CORRECTION
+
+       gl_FragColor = vec4(pow(c.x,0.45),pow(c.y,0.45),pow(c.z,0.45),1.);
+    }
+</script>
+
+<script id=fs_tex type=x-shader/x-fragment>
+   vec3 ungammaCorrect(vec3 c) { return vec3(pow(c.x,2.222),pow(c.y,2.222),pow(c.z,2.222)); }
+   vec3 gammaCorrect(vec3 c) { return vec3(pow(c.x,.45),pow(c.y,.45),pow(c.z,.45)); }
+
+   uniform sampler2D uSampler;
+   uniform vec3 uLDir;
+   varying vec3 vNormal;
+   varying vec2 vUV;
+
+   void main(void) {
+      float d = .1 + .9 * max(0., dot(uLDir, normalize(vNormal)));
+      vec3 rgb = vec3(d,d,d);
+      vec3 trgb = ungammaCorrect(texture2D(uSampler, vUV).xyz);
+      rgb = rgb * trgb;
+      gl_FragColor = vec4(gammaCorrect(rgb), 1.);
+   }
+</script>
+
+<script src=staging.js></script>
+
+</body>

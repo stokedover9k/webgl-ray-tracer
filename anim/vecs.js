@@ -132,11 +132,13 @@ vec4.prototype.xyz        = function()  { return new vec3(this.x(), this.y(), th
 vec4.prototype.length     = function()  { return Math.sqrt(this.x() * this.x() + this.y() * this.y() + this.z() * this.z()); };
 vec4.prototype.normalized = function()  { var l = this.length();  return new vec4(this.x()/l, this.y()/l, this.z()/l, this.w() ); };
 vec4.prototype.loc4       = function()  { return new vec4(this.x(), this.y(), this.z(), 1); };
-vec4.prototype.dir4       = function()  { return this.normalized(); };
+vec4.prototype.dir4       = function()  { var d = this.normalized();  d.coords[_iW] = 0;  return d; };
 vec4.prototype.toVec4     = function(w) { return this; };
 vec4.prototype.dot        = function(v) { return this.x() * v.x() + this.y() * v.y() + this.z() * v.z() + this.w() * v.w(); };
 vec4.prototype.plus       = function(v) { return new vec4(this.x() + v.x(), this.y() + v.y(), this.z() + v.z(), this.w() + v.w()); };
 vec4.prototype.minus      = function(v) { return new vec4(this.x() - v.x(), this.y() - v.y(), this.z() - v.z(), this.w() - v.w()); };
+vec4.prototype.scale      = function(s) { return new vec4(this.x()*s, this.y()*s, this.z()*s, this.w()); };
+vec4.prototype.cross      = function(v) { return this.xyz().cross(v.xyz()).toVec4(1); };
 
 vec4.prototype.timesLM    = function(leftMatrix) {
   var v = _mult_matrix_by_vec4(leftMatrix.vals, this.coords);

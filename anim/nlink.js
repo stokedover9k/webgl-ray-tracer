@@ -1,3 +1,8 @@
+var origin4 = new vec4(0,0,0,1);
+var AXIS_X = new vec4(1,0,0,0);
+var AXIS_Y = new vec4(0,1,0,0);
+var AXIS_Z = new vec4(0,0,1,0);
+
 function funcTransformIdentity() { return MSIdentity(); }
 
 function makeAnimation (funcWorldT, funcModelT, funcAnchorT, colors) {
@@ -66,6 +71,12 @@ function Rotating (context, msRotationType, segFactory) {
       return MSTranslate(Waldo.atx, Waldo.aty, Waldo.atz);
     }
     );
+
+  // cache the world transformation at this particular object
+  this.worldT = mat4_identity();
+  this.segment.cacheT = function (m) {
+    Waldo.worldT = m;
+  }
 }
 
 // Parent is either an instance of Rotating or of Segment
@@ -94,7 +105,7 @@ function Arm (context) {
 
 nlinkCanvas.setup = function () {
 
-  var root = rootOfAllEvil(this, .3, function(){return MSRotateY(time / 2)});
+  var root = rootOfAllEvil(this, .3, function(){return MSTranslate(0,-.7,0).then(MSRotateY(time / 2))});
 
   var context = this;
 
@@ -108,22 +119,71 @@ nlinkCanvas.setup = function () {
     context.arms.push(arm);
     context.elbows.push(elb);
     createArms(n-1, elb);
-  }
-
+  };
   createArms(5, root);
+
+  this.target = makeBall(this,
+    function () { return MSTranslate(2, 2 + 3 * Math.sin(time), 0); },
+    function () { return MSScale(.2,.2,.2); },
+    function () { return MSIdentity(); },
+    [.2,.2,.7]);
+
+  // cache target location
+  this.locTarget = origin4;
+  this.target.cacheT = function (m) { context.locTarget = m.timesRV(origin4); };
+
+  root.addChild(this.target);
 
   this.root = root;
 }
 
 nlinkCanvas.update = function () {
-  for (var i = 0; i < this.elbows.length; i++) {
+
+  var n = 2;
+  var N = this.elbows.length;
+
+  var elb = this.elbows[n];
+  var end = this.elbows[N-1];
+  var trg = this.target;
+
+  var locElb = elb.worldT.timesRV(origin4);
+  var locEnd = end.worldT.timesRV(origin4);
+  var locTrg = this.locTarget;
+
+  var relElb = origin4;
+  var relEnd = locEnd.minus(locElb);
+  var relTrg = locTrg.minus(locElb);
+
+  var axisElb = elb.worldT.timesRV(AXIS_Z).normalized();
+
+  // compute locations (relative to elbow) of end and target projected
+  // onto the plane perpendicular to elbow rotation axis
+
+  var d = axisElb.dot(relEnd.dir4());
+  var flatEnd = relEnd.minus(axisElb.scale(d));
+
+  var d = axisElb.dot(relTrg.dir4());
+  var flatTrg = relTrg.minus(axisElb.scale(d));
+
+  relEnd = flatEnd.dir4();
+  relTrg = flatTrg.dir4();
+
+  var sign = relEnd.cross(relTrg).dot(axisElb) > 0 ? 1 : -1;
+  var ang = sign * Math.acos(relEnd.dot(relTrg));
+
+  elb.rotation += ang || 0;
+
+  if( this.mousePressed ) {
+    console.log(relEnd.arr(), ang);
+  }
+
+
+  /*
+  for (var i = 0; i < this.elbows.length; i++)
     this.elbows[i].rotation = Math.sin(time);
-  };
-
-  for (var i = 0; i < this.arms.length; i++) {
+  for (var i = 0; i < this.arms.length; i++)
     this.arms[i].rotation = Math.sin(time);
-  };
-
+  */
   
   this.root.animateAll();
 }

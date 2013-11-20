@@ -24,9 +24,13 @@
 <body onload=glStart();>
 
 <div class="canvas-reel">
-  <canvas id=focusCanvas data-render=gl width=400 height=400 tabindex="1"></canvas>
+  <canvas id=twolinkCanvas data-render=gl width=400 height=400 tabindex="1"></canvas>
   <p>Two Link Inverse Kinematics</p>
   <p>The yellow orb moves freely. The palm is positioned to match it, then elevated above it by slight rotation at the elbow. Then, the rotation at the wrist is suppressed as fingers close which contributes to the illusion that the hand id guiding the orb until it can be caught.</p>
+</div>
+
+<div class="canvas-reel">
+  <canvas id=nlinkCanvas data-render=gl width=400 height=400 tabindex="1"></canvas>
 </div>
 
 <script id=fs_phong type=x-shader/x-fragment>
@@ -81,5 +85,6 @@
 </script>
 
 <script src=2link.js></script>
+<script src=nlink.js></script>
 
 </body>

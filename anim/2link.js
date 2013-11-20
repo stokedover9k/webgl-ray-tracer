@@ -228,12 +228,12 @@ function addActor (context, root) {
   createHand(context, a2, MSTranslate(0,0,0));
 }
 
-focusCanvas.setup = function () {
+twolinkCanvas.setup = function () {
   this.root = rootOfAllEvil(this, .3, function(){return MSRotateY(time / 2)});
 
   addActor(this, this.root);
 }
 
-focusCanvas.update = function () {
+twolinkCanvas.update = function () {
   this.root.animateAll();
 }

@@ -7,7 +7,7 @@ function setUniforms(obj, colors) {
 }
 
 function fingerObjFactory() {
-  return createConePart(8, 1.2, Math.PI * 1.5);
+  return createConePart(8, 1.5, Math.PI * 1.5);
 }
 
 // Several smooth curves.
@@ -25,7 +25,7 @@ var Curves = function() {
   return this;
 }();
 
-function GrippingMotion() {
+function GrippingMotion(context) {
   var L = 3;
   var curve = Curves.UP_AND_DOWN;
   var ang = curve((time % L)/L);
@@ -42,7 +42,7 @@ function createFinger(context, worldOffset) {
       context.addObject(fingerObjFactory(), 'fs_phong'),
       function() {
         this.modelT = MSScale(.3,1,.3);
-        this.worldT = worldOffset.then(MSTranslate(0,1,0)).then(GrippingMotion());
+        this.worldT = worldOffset.then(MSTranslate(0,1,0)).then(GrippingMotion(context));
         this.anchorT = MSTranslate(0,1,0);
         setUniforms(this.obj);
       });
@@ -113,6 +113,7 @@ function makeSmoothCurve(length) {
 function addActor (context, root) {
 
   var curve = makeSmoothCurve(2);
+  var gripCurve = makeSmoothCurve(3);
 
   function Df () {return new vec3(0,1,0);};  // elbow direction
   function Cf () {                           // palm/target location
@@ -133,25 +134,29 @@ function addActor (context, root) {
     return D;
   }
 
-  function makeBall (funcWorldT) {
+  function makeBall (funcWorldT, colors, funcModelT) {
+    colors = colors || [.1,0,0];
+    funcModelT = funcModelT || function () { return MSScale(.2,.2,.2); }
     return new Segment(
       context.addObject(createSphere(8,4), 'fs_phong'),
       function () {
-        this.modelT = MSScale(.2,.2,.3);
+        this.modelT = funcModelT();
         this.worldT = funcWorldT();
-        setUniforms(this.obj, makeMetallic([.1,0,0]));
+        setUniforms(this.obj, makeMetallic(colors));
       });
   }
 
-  // palm
+  // floating orb
   var b1 = makeBall(function () {
-    var v = Cf().arr();
+    var v = Cf().arr();    // compute point C (destination)
     return MSTranslate(v[0], v[1], v[2]);
+  }, [.5,.5,.1], function () {
+    return MSScale(.3,.3,.3);
   });
 
   // elbow
   var b2 = makeBall(function () {
-    var v = compute().arr();
+    var v = compute().arr();  // compute elbow position
     return MSTranslate(v[0], v[1], v[2]);
   });
 
@@ -197,7 +202,10 @@ function addActor (context, root) {
 
     var axis = up.cross(dir).normalized();
     var ang = Math.acos(up.dot(dir));
-    var rotation = MSRotateAxis(axis.x(), axis.y(), axis.z(), ang - Math.PI/6);
+    var rotation = MSIdentity()
+      .then(MSRotateX(-Math.PI/6))
+      .then(MSRotateAxis(axis.x(), axis.y(), axis.z(), ang))
+      ;
 
     return MSIdentity()
       .then(MSTranslate(0,Bf()/2,0))
@@ -208,20 +216,20 @@ function addActor (context, root) {
   }, function () {
     return MSIdentity()
       .then(MSScale(.3,.3,.3))
-      .then(MSRotateY(Math.sin(5 * time)))
+      .then(MSRotateY(Math.pow(1-gripCurve(time), .5) * Math.sin(5 * time)))
       .then(MSTranslate(0,Bf()/2,0));
-  })
+  });
 
   root.addChild(b1);
   root.addChild(b2);
   root.addChild(a1);
   a1.addChild(a2);
-  a2.addChild(makeBall(function () {return MSScale(3,3,2);}));
+  a2.addChild(makeBall(function () {return MSScale(4,4,3);}));
   createHand(context, a2, MSTranslate(0,0,0));
 }
 
 focusCanvas.setup = function () {
-  this.root = rootOfAllEvil(this, .3, function(){return MSRotateY(0)});
+  this.root = rootOfAllEvil(this, .3, function(){return MSRotateY(time / 2)});
 
   addActor(this, this.root);
 }

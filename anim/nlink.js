@@ -52,6 +52,8 @@ function Rotating (context, msRotationType, segFactory) {
   
   this.rotation = 0;
 
+  this.axis = AXIS_Z;
+
   this.wtx = 0;  this.wty = 0;  this.wtz = 0;  //  world translations
   this.atx = 0;  this.aty = 0;  this.atz = 0;  // anchor translations
   this.msx = 1;  this.msy = 1;  this.msz = 1;  //  model scale
@@ -91,6 +93,7 @@ Rotating.prototype.childTo = function(parent) {
 // elbows rotate around Z
 function Elbow (context) { 
   var ret = new Rotating(context, MSRotateZ, ballSegFactory([.1,0,0]));
+  ret.axis = AXIS_Z;
   ret.msx = .2;  ret.msy = .2;  ret.msz = .2;
   return ret;
 }
@@ -98,10 +101,13 @@ function Elbow (context) {
 // arms rotate around the Y axis
 function Arm (context) { 
   var ret = new Rotating(context, MSRotateY, tubeSegFactory([.1,.1,0]));
-  ret.msx = .2;  ret.msy = .5;  ret.msz = .2;
+  ret.axis = AXIS_Y;
+  ret.msx = .1;  ret.msy = .5;  ret.msz = .1;
   ret.wty = .5;  ret.aty = .5;
   return ret;
 }
+
+var focusCurve = makeSmoothCurve(3);
 
 nlinkCanvas.setup = function () {
 
@@ -113,17 +119,32 @@ nlinkCanvas.setup = function () {
   this.elbows = [];
 
   function createArms (n, parent) {
-    if( n <= 0 ) return;
+    if( n <= 0 ) {
+      // This will be the "head" or "end" of the arm which follows the target.
+      // Alternatively, this is that the hand is grasping at.
+      var elb = Elbow(context).childTo(parent);
+      elb.wtz = .5;  elb.wty = .2;
+      elb.msx = 0;  elb.msy = 0;  elb.msz = 0;   // scale it out of existence
+      context.elbows.push(elb);
+
+      createHand(context, parent.segment, MSIdentity()
+        .then(MSTranslate(0,1,0))
+        .then(MSRotateX(-1))
+        .then(MSTranslate(0,-3,0))
+        .then(MSScale(.3,.3,.3))
+        );
+      return;
+    }
     var arm = Arm(context).childTo(parent);
     var elb = Elbow(context).childTo(arm);
-    context.arms.push(arm);
+    context.elbows.push(arm);
     context.elbows.push(elb);
     createArms(n-1, elb);
   };
   createArms(5, root);
 
   this.target = makeBall(this,
-    function () { return MSTranslate(2, 2 + 3 * Math.sin(time), 0); },
+    function () { return MSTranslate(3 * Math.cos(time * 3), 2 + 3 * Math.sin(time), 3 * Math.sin(time * 3)); },
     function () { return MSScale(.2,.2,.2); },
     function () { return MSIdentity(); },
     [.2,.2,.7]);
@@ -139,51 +160,45 @@ nlinkCanvas.setup = function () {
 
 nlinkCanvas.update = function () {
 
-  var n = 2;
   var N = this.elbows.length;
 
-  var elb = this.elbows[n];
-  var end = this.elbows[N-1];
-  var trg = this.target;
+  var scale = this.mousePressed ? .2 : 0;
+  var last = this.elbows[N - 1];
+  last.msx = scale;  last.msy = scale;  last.msz = scale;
 
-  var locElb = elb.worldT.timesRV(origin4);
-  var locEnd = end.worldT.timesRV(origin4);
-  var locTrg = this.locTarget;
+  for (var n = 0; n < N-2; n++) {
+    
+    var elb = this.elbows[n];
+    var end = this.elbows[N-1];
+    var trg = this.target;
 
-  var relElb = origin4;
-  var relEnd = locEnd.minus(locElb);
-  var relTrg = locTrg.minus(locElb);
+    var locElb = elb.worldT.timesRV(origin4);
+    var locEnd = end.worldT.timesRV(origin4);
+    var locTrg = this.locTarget.minus(new vec4(0,0,0,0));
 
-  var axisElb = elb.worldT.timesRV(AXIS_Z).normalized();
+    var relElb = origin4;
+    var relEnd = locEnd.minus(locElb);
+    var relTrg = locTrg.minus(locElb);
 
-  // compute locations (relative to elbow) of end and target projected
-  // onto the plane perpendicular to elbow rotation axis
+    var axisElb = elb.worldT.timesRV(elb.axis).normalized();
 
-  var d = axisElb.dot(relEnd.dir4());
-  var flatEnd = relEnd.minus(axisElb.scale(d));
+    // compute locations (relative to elbow) of end and target projected
+    // onto the plane perpendicular to elbow rotation axis
 
-  var d = axisElb.dot(relTrg.dir4());
-  var flatTrg = relTrg.minus(axisElb.scale(d));
+    var d = axisElb.dot(relEnd.dir4());
+    var flatEnd = relEnd.minus(axisElb.scale(d));
 
-  relEnd = flatEnd.dir4();
-  relTrg = flatTrg.dir4();
+    var d = axisElb.dot(relTrg.dir4());
+    var flatTrg = relTrg.minus(axisElb.scale(d));
 
-  var sign = relEnd.cross(relTrg).dot(axisElb) > 0 ? 1 : -1;
-  var ang = sign * Math.acos(relEnd.dot(relTrg));
+    relEnd = flatEnd.dir4();
+    relTrg = flatTrg.dir4();
 
-  elb.rotation += ang || 0;
+    var sign = relEnd.cross(relTrg).dot(axisElb) > 0 ? 1 : -1;
+    var ang = sign * Math.acos(relEnd.dot(relTrg)) / (N-2) * (.2 + .7 * focusCurve(time));
 
-  if( this.mousePressed ) {
-    console.log(relEnd.arr(), ang);
+    elb.rotation += ang || 0;
   }
-
-
-  /*
-  for (var i = 0; i < this.elbows.length; i++)
-    this.elbows[i].rotation = Math.sin(time);
-  for (var i = 0; i < this.arms.length; i++)
-    this.arms[i].rotation = Math.sin(time);
-  */
   
   this.root.animateAll();
 }

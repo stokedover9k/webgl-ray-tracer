@@ -17,20 +17,27 @@
     margin-right: auto;
   }
   canvas {
+    margin-top: 0em;
+  }
+  .canvas-title {
     margin-top: 2em;
+    text-align: center;
   }
   </style>
 </head>
 <body onload=glStart();>
 
 <div class="canvas-reel">
+  <h3 class=canvas-title>Two Link Inverse Kinematics</h3>
   <canvas id=twolinkCanvas data-render=gl width=400 height=400 tabindex="1"></canvas>
-  <p>Two Link Inverse Kinematics</p>
   <p>The yellow orb moves freely. The palm is positioned to match it, then elevated above it by slight rotation at the elbow. Then, the rotation at the wrist is suppressed as fingers close which contributes to the illusion that the hand id guiding the orb until it can be caught.</p>
 </div>
 
 <div class="canvas-reel">
+  <h3 class=canvas-title>N-Link Inverse Kinematics</h3>
   <canvas id=nlinkCanvas data-render=gl width=400 height=400 tabindex="1"></canvas>
+  <p>Click the mouse on the canvas to see the true head of the chain which attempts to catch the target.</p>
+  <p>Strength of adjustment at each joint is modulated with time, so the arm lags behind and then catches up to the target.</p>
 </div>
 
 <script id=fs_phong type=x-shader/x-fragment>

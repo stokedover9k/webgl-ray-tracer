@@ -1,3 +1,11 @@
+//============== __HELPERS__ (private) =============//
+
+function UNIMPLEMENTED (warning) {
+  return function (arg) { console.log("[ERROR: unimplemented] " + warning, arg); }
+}
+
+//============== PARTICLE ================//
+
 // @arg loc = vec3 location 
 // @arg vel = vec3 velocity
 // @arg acc = vec3 acceleration
@@ -7,9 +15,7 @@ function Particle (loc, vel, acc, draw_function) {
   this.acc = acc || ORIGIN;
   this.lifespan = 1;
   this.liveliness = 1;
-  this.draw_function = draw_function || function (particle, arg) {
-    console.log("[ERROR] particle.draw_function not implemented", particle);
-  }
+  this.draw_function = draw_function || UNIMPLEMENTED("Particle.draw_function");
 }
 
 Particle.prototype.isDead = function() { return this.liveliness <= 0; };
@@ -23,26 +29,82 @@ Particle.prototype.update = function(td) {
 };
 
 // @arg da = argument object to display/draing method
-Particle.prototype.display = function (da) { this.draw_function(this, da); };
+Particle.prototype.display = function () { this.draw_function(this); };
 
-// @arg td = time since last update
-// @arg da = argument object to display method
-Particle.prototype.run = function(td, da) {
-  this.update(td);
-  this.display(this, da);
+//============== PARTICLE SYSTEM ================//
+
+function ParticleSystem (loc, size, particleBuilder) {
+  this.loc = loc || ORIGIN;
+
+  this.particleBuilder = particleBuilder;
+  this.particlePool = ListFill(size, particleBuilder);
+  this.active = NIL;
+}
+
+ParticleSystem.prototype.update = function(td) {
+  var pair = this.active.splitBy(isDead);
+  var dead = pair.first;
+  var alive = pair.second;
+
+  this.active = alive;
+  alive.foreach(function (p) {
+    p.update(td);
+  });
+
+  var psys = this;
+  dead.foreach(function (p) {
+    psys.particlePool = new List(p, psys.particlePool);
+  });
 };
+
+ParticleSystem.prototype.display = function() {
+  this.active.foreach(function (p) {
+    p.display();
+  });
+};
+
+ParticleSystem.prototype.addParticle = function() {
+  var p;
+  if( this.particlePool == NIL )
+    p = this.particleBuilder();
+  else {
+    p = this.particlePool.val;
+    this.particlePool = this.particlePool.tail;
+  }
+
+  p.liveliness = 1;
+  p.loc = this.loc;
+  p.vel = new vec3(Math.random() * .4, Math.random() * .2, 0);
+  p.acc = new vec3(0,-.3,0);
+
+  this.active = new List(p, this.active);
+};
+
+//==============================================//
+
+function ParticleFactory (gl, canvas) {
+
+  var tetra = createRegularTetrahedron();
+
+  this.build = function () {
+    var particle = new Particle(null, null, null,
+    function (particle) {  // drawing function
+      this.matrix = [.05,0,0,0, 0,.05,0,0, 0,0,.05,0, this.loc.x(),this.loc.y(),this.loc.z(),1];
+      setUniforms(this, makeMetallic([.1, 0, 0, this.liveliness]));
+      drawObject(gl, this);
+    });
+
+    particle.lifespan = 2;
+    particle.vertices = tetra;
+
+    return canvas.prepObject(particle, 'fs_phong');
+  }
+}
 
 //---------------  MAIN  ----------------------
 
 var LAST_TIME = 0;
 var MOUSE_PRESSED = false;
-
-function resetParticle (p) {
-  p.liveliness = 1;
-  p.loc = new vec3(-Math.random() * .05, (Math.random()-.5)*.2, 0);
-  p.vel = AXIS_X.scale(.3);
-  p.acc = new vec3(0,-.3,0);
-}
 
 function probEmission(td) {
   var frameLength = 0.001;
@@ -56,6 +118,11 @@ CanvasParticles.setup = function () {
   var context = this;
   var gl = this.gl;
 
+  this.particleSystem = new ParticleSystem(ORIGIN, 100, new ParticleFactory(gl, this).build);
+
+  /*
+  var tetra = createRegularTetrahedron();
+
   function createParticle () {
     var particle = new Particle(null, null, null,
       function (particle, arg) {  // drawing function
@@ -67,7 +134,7 @@ CanvasParticles.setup = function () {
       });
 
     particle.lifespan = 2;
-    particle.vertices = createSphere(4,2);
+    particle.vertices = tetra;  //createSphere(4,2);
 
     return context.prepObject(particle, 'fs_phong');
   }
@@ -76,8 +143,9 @@ CanvasParticles.setup = function () {
   for( var i = 0; i < 100; i++ )
     particlePool = new List(createParticle(), particlePool);
   this.PARTICLE_POOL = particlePool;
+  */
 
-  this.ACTIVE_OBJECTS = NIL;
+  this.ACTIVE_OBJECTS = new List(this.particleSystem, NIL);
 }
 
 function isDead (p) { return p.isDead(); }
@@ -90,34 +158,12 @@ CanvasParticles.update = function () {
   var DELTA_TIME = time - LAST_TIME;
   /////////////////////////////////
 
-  if( CANVAS.ACTIVE_OBJECTS != NIL ) {
+  this.particleSystem.loc = new vec3(Math.sin(time) * .2, 0, 0);
+  this.particleSystem.update(DELTA_TIME);
 
-    var alive = NIL;
-
-    CANVAS.ACTIVE_OBJECTS.foreach(function (p) {
-      p.update(DELTA_TIME);
-
-      if( p.isDead() )
-        CANVAS.PARTICLE_POOL = new List(p, CANVAS.PARTICLE_POOL);
-      else
-        alive = new List(p, alive);
-    });
-
-    CANVAS.ACTIVE_OBJECTS = alive;
+  if( Math.random() >= probEmission(DELTA_TIME) ) {
+    this.particleSystem.addParticle();
   }
-
-  if( CANVAS.PARTICLE_POOL != NIL ) {  // if have free particles
-    if( Math.random() >= probEmission(DELTA_TIME) ) {  // if luck has it
-
-      var p = CANVAS.PARTICLE_POOL.val;
-      resetParticle(p);
-
-      CANVAS.PARTICLE_POOL = CANVAS.PARTICLE_POOL.tail;
-      CANVAS.ACTIVE_OBJECTS = new List(p, CANVAS.ACTIVE_OBJECTS);
-    }
-  }
-
-
 
   /////////////////////////////////
   LAST_TIME = time;

@@ -1,3 +1,27 @@
+function createRegularTetrahedron () {
+  var vertices = [];
+
+  var v1 = new vec3(0, 0, .612372436);
+  var v2 = new vec3(-.288675135, -.5, -.204124145);
+  var v3 = new vec3(-.288675135, .5, -.204124145);
+  var v4 = new vec3(.577350269, 0, -.204124145);
+
+  var center = v1.plus(v2).plus(v3).plus(v4).scale(1/4);
+  function addVertex (v) {
+    var n = v.minus(center).normalized();
+    vertices.push(v.x(), v.y(), v.z(),   n.x(), n.y(), n.z(),  0, 0);   // TODO: !!! u, v
+  }
+
+  addVertex(v1);
+  addVertex(v2);
+  addVertex(v3);
+  addVertex(v4);
+  addVertex(v2);
+  addVertex(v1);
+
+  return vertices;
+}
+
 // CREATE A CUBE GEOMETRY:
 
    function createCube() {

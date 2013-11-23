@@ -93,12 +93,10 @@ function createHand (context, root, worldTransform) {
   }
 
   for (var i = 0; i < 5; i++) {
-    var trans = MSIdentity()
+    var trans = worldTransform
       .then(MSRotateZ(rot(i)))
       .then(MSTranslate(transX(i),transY(i),0))
-      .then(MSScale(sc(i), sc(i), sc(i)))
-      .then(worldTransform)
-      ;
+      .then(MSScale(sc(i), sc(i), sc(i)));
     root.addChild( createFinger(context, trans) );
   };
 }

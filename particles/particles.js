@@ -40,17 +40,24 @@ Particle.prototype.applyForce = function(f) { this.acc = this.acc.plus(f); };
 // @arg da = argument object to display/draing method
 Particle.prototype.display = function () { this.draw_function(this); };
 
-//============== PARTICLE SYSTEM ================//
+//============== ATTRACTOR ================//
 
 function Attractor (loc, strength) {
   this.loc = loc;
   this.str = strength || 1;
 }
 
+// @arg p = particle
+Attractor.prototype.attract = function(p) {
+  p.applyForce(this.loc.minus(p.loc).normalized().scale(this.str));
+};
+
+//============== PARTICLE SYSTEM ================//
+
 function ParticleSystem (emitterLoc, size, particleBuilder) {
   this.emitterLoc = emitterLoc || ORIGIN;
 
-  this.attractor = new Attractor(this.emitterLoc);
+  this.attractors = NIL;
 
   this.particleBuilder = particleBuilder;
   this.particlePool = ListFill(size, particleBuilder);
@@ -87,7 +94,9 @@ ParticleSystem.prototype.update = function(td) {
   });
 
   alive.foreach(function (p) {
-    p.applyForce(sys.attractor.loc.minus(p.loc).normalized().scale(sys.attractor.str));
+    sys.attractors.foreach(function (a) {
+      a.attract(p);
+    });
     p.update(td);
     p.acc = ORIGIN;
   });
@@ -120,4 +129,10 @@ ParticleSystem.prototype.addParticle = function() {
   p.acc = ORIGIN;
 
   this.active = new List(p, this.active);
+};
+
+ParticleSystem.prototype.addAttractor = function() {
+  var a = new Attractor(this.emitterLoc);
+  this.attractors = new List(a, this.attractors);
+  return a;
 };

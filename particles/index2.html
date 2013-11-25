@@ -32,8 +32,9 @@
 
 <div class="canvas-reel">
   <canvas id=CanvasParticles data-render=gl width=400 height=400 tabindex="1"></canvas>
-  <p>Mouse rotates the world.</p>
-  <p>Particles are emitted at the yellow marker and attracted toward the red marker. Additionally, live particles attract each other (and repel each other when they get too close). Gravitation between particles depends on their mass (size of each particle is indicative of its mass). Emission events have per-time-unit probability.</p>
+  <p>Mouse location controls one of the attractors. While mouse button is pressed, that attractor's force is reversed.</p>
+  <p>The controlled attractor has an additional feature: particles within a small range are &quot;reflected&quot;. This means that the particle's velocity is reflected against its relative direction from the attractor whether it is moving toward or away from the attractor. Therefore, particles which manage to come close may float nearby while others will be reflected away.</p>
+  <p>For a cool efffect, hold the attractor over the emitter until the system stabilizes. Then shake it loose.</p>
 </div>
 
 <script id=fs_phong type=x-shader/x-fragment>
@@ -88,6 +89,6 @@
    }
 </script>
 
-<script src=particle-system.js></script>
+<script src=particle-system2.js></script>
 
 </body>

@@ -54,28 +54,42 @@ CanvasParticles.setup = function () {
   var context = this;
   var gl = this.gl;
 
-  this.particleSystem = new ParticleSystem(ORIGIN, 100, new ParticleFactory(gl, this).build);
+  context.particleSystem = new ParticleSystem(ORIGIN, 100, new ParticleFactory(gl, context).build);
 
-  this.attractor = this.particleSystem.addAttractor();
+  context.attractor1 = context.particleSystem.addAttractor();
+  context.attractor2 = context.particleSystem.addAttractor();
 
-  this.rootMarker = {};
-  this.rootMarker.vertices = createSphere(8,4);
-  this.rootMarker = this.prepObject(this.rootMarker, 'fs_phong');
+  //----------------------------------------------------------------------------------
+  // override the attractor's attract method to reflect particles that get too close
+  //----------------------------------------------------------------------------------
+  context.attractor2.attract = function (p) {
+    p.applyForce(this.loc.minus(p.loc).normalized().scale(this.str));
 
-  this.emitterMarker = {};
-  this.emitterMarker.vertices = createSphere(8,4);
-  this.emitterMarker = this.prepObject(this.emitterMarker, 'fs_phong');
+    var dif = p.loc.minus(this.loc);
+    if( dif.dot(dif) < .16 ) {  // if distance < .4
+      var n = dif.normalized();
+      var d = p.vel;
+      p.vel = d.minus(n.scale(2 * d.dot(n)));
+    }
+  };
 
-  this.attractorMarker = {};
-  this.attractorMarker.vertices = createSphere(8,4);
-  this.attractorMarker = this.prepObject(this.attractorMarker, 'fs_phong');
+  context.rootMarker = {};
+  context.rootMarker.vertices = createSphere(8,4);
+  context.rootMarker = context.prepObject(context.rootMarker, 'fs_phong');
+
+  context.emitterMarker = {};
+  context.emitterMarker.vertices = createSphere(8,4);
+  context.emitterMarker = context.prepObject(context.emitterMarker, 'fs_phong');
+
+  context.attractorMarker = {};
+  context.attractorMarker.vertices = createSphere(8,4);
+  context.attractorMarker = context.prepObject(context.attractorMarker, 'fs_phong');
 
   //=========== WORLD DISPLAY =======================
   var world = {};
   world.display = function () {
     mstack.push();
 
-      mstack.apply(MSRotateY(context.mouseX / context.getAttribute('width') * 2 * Math.PI || 0));
       context.particleSystem.display();
 
       // draw emitter
@@ -86,13 +100,15 @@ CanvasParticles.setup = function () {
         drawObject(gl, context.emitterMarker);
       mstack.pop();
 
-      // draw attractor
-      mstack.push();
-        mstack.apply(MSScale(.02,.02,.02).then(MSTranslatev(context.attractor.loc)));
-        context.attractorMarker.matrix = mstack.top().arr();
-        setUniforms(context.attractorMarker, makeMetallic([.1, .0, .0, 1]));
-        drawObject(gl, context.attractorMarker);
-      mstack.pop();
+      // draw attractors
+      context.particleSystem.attractors.foreach(function (a) {
+        mstack.push();
+          mstack.apply(MSScale(.02,.02,.02).then(MSTranslatev(a.loc)));
+          context.attractorMarker.matrix = mstack.top().arr();
+          setUniforms(context.attractorMarker, makeMetallic([.1, .0, .0, 1]));
+          drawObject(gl, context.attractorMarker);
+        mstack.pop();
+      });
 
       // draw root (ground)
       mstack.apply(MSScale(2,.1,2).then(MSTranslate(0,-1,0)));
@@ -116,11 +132,21 @@ CanvasParticles.update = function () {
   var DELTA_TIME = time - LAST_TIME;
   /////////////////////////////////
 
-  this.particleSystem.emitterLoc = new vec3(Math.sin(time) * .3, Math.cos(time*4) * .2, Math.sin((2 + time)*8) * .1);
-  this.attractor.loc = new vec3(Math.sin(time), Math.sin(time/2) * .2, Math.cos(time/3));
+  this.particleSystem.emitterLoc = new vec3(.3, 0, 0);
+
+  this.attractor1.str = 1;
+  this.attractor1.loc = new vec3(-.3, 0, 0);
+
+  this.attractor2.str = MOUSE_PRESSED ? -1 : 1;
+  this.attractor2.loc = new vec3(
+    (this.mouseX / this.getAttribute('width') - .5) * 2 || 0,
+    (-this.mouseY / this.getAttribute('height') + .5) * 2 || 0,
+    0);
 
   if( Math.random() <= probEmission(DELTA_TIME) )
     this.particleSystem.addParticle();
+
+  if (MOUSE_PRESSED) {console.log(this.attractor2.str);};
 
   this.particleSystem.update(DELTA_TIME);
 

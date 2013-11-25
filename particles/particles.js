@@ -60,6 +60,7 @@ Attractor.prototype.attract = function(p) {
 function Emitter (loc, sys, prep) {
   this.loc = loc;
   this.sys = sys;
+  this.dir = AXIS_X;
   this.prep = prep || UNIMPLEMENTED("Emitter.prep");
 }
 

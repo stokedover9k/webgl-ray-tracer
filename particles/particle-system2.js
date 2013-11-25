@@ -49,6 +49,21 @@ function probEmission(td) {
   return 1 - Math.pow(1 - probFrameEmission, numFrames);
 }
 
+function prepParticle (p, e) {
+  p.lifespan = 5;
+  p.liveliness = 1;
+  p.loc = e.loc;
+  p.vel = new vec3(Math.random() * .3, Math.random() * .2, Math.random() * .25);
+  p.acc = ORIGIN;
+
+  var r = Math.sin(LAST_TIME) * .05 + .05 + Math.random() * .02 - .01;
+  var g = Math.sin(LAST_TIME + Math.PI) * .05 + .05 + Math.random() * .02 - .01;
+  var b = Math.sin(LAST_TIME + 1.5 * Math.PI) * .05 + .05 + Math.random() * .02 - .01;
+  p.color = [r,g,b,1];
+
+  return p;
+}
+
 CanvasParticles.setup = function () {
 
   var context = this;
@@ -58,6 +73,8 @@ CanvasParticles.setup = function () {
 
   context.attractor1 = context.particleSystem.addAttractor();
   context.attractor2 = context.particleSystem.addAttractor();
+
+  context.emitter1 = context.particleSystem.addEmitter(prepParticle);
 
   //----------------------------------------------------------------------------------
   // override the attractor's attract method to reflect particles that get too close
@@ -94,7 +111,7 @@ CanvasParticles.setup = function () {
 
       // draw emitter
       mstack.push();
-        mstack.apply(MSScale(.02,.02,.02).then(MSTranslatev(context.particleSystem.emitterLoc)));
+        mstack.apply(MSScale(.02,.02,.02).then(MSTranslatev(context.emitter1.loc)));
         context.emitterMarker.matrix = mstack.top().arr();
         setUniforms(context.emitterMarker, makeMetallic([.1, .1, 0, 1]));
         drawObject(gl, context.emitterMarker);
@@ -132,7 +149,7 @@ CanvasParticles.update = function () {
   var DELTA_TIME = time - LAST_TIME;
   /////////////////////////////////
 
-  this.particleSystem.emitterLoc = new vec3(.3, 0, 0);
+  this.emitter1.loc = new vec3(.3, 0, 0);
 
   this.attractor1.str = 1;
   this.attractor1.loc = new vec3(-.3, 0, 0);
@@ -144,9 +161,7 @@ CanvasParticles.update = function () {
     0);
 
   if( Math.random() <= probEmission(DELTA_TIME) )
-    this.particleSystem.addParticle();
-
-  if (MOUSE_PRESSED) {console.log(this.attractor2.str);};
+    this.emitter1.emit();
 
   this.particleSystem.update(DELTA_TIME);
 

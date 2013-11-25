@@ -52,12 +52,38 @@ Attractor.prototype.attract = function(p) {
   p.applyForce(this.loc.minus(p.loc).normalized().scale(this.str));
 };
 
+
+//============== EMITTER ================//
+
+// @arg sys = parent particle system
+// @arg prep: (particle, emitter) -> particle = function which prepares a particle for emission
+function Emitter (loc, sys, prep) {
+  this.loc = loc;
+  this.sys = sys;
+  this.prep = prep || UNIMPLEMENTED("Emitter.prep");
+}
+
+Emitter.prototype.emit = function() {
+  var p;
+  if( this.sys.particlePool == NIL )
+    p = this.sys.particleBuilder();
+  else {
+    p = this.sys.particlePool.val;
+    this.sys.particlePool = this.sys.particlePool.tail;
+  }
+
+  p = this.prep(p, this);
+
+  this.sys.active = new List(p, this.sys.active);
+};
+
 //============== PARTICLE SYSTEM ================//
 
-function ParticleSystem (emitterLoc, size, particleBuilder) {
-  this.emitterLoc = emitterLoc || ORIGIN;
+function ParticleSystem (loc, size, particleBuilder) {
+  this.loc = loc || ORIGIN;
 
   this.attractors = NIL;
+  this.emitters = NIL;
 
   this.particleBuilder = particleBuilder;
   this.particlePool = ListFill(size, particleBuilder);
@@ -124,7 +150,7 @@ ParticleSystem.prototype.addParticle = function() {
 
   p.lifespan = 5;
   p.liveliness = 1;
-  p.loc = this.emitterLoc;
+  p.loc = this.loc;
   p.vel = new vec3(Math.random() * .3, Math.random() * .2, Math.random() * .25);
   p.acc = ORIGIN;
 
@@ -132,7 +158,13 @@ ParticleSystem.prototype.addParticle = function() {
 };
 
 ParticleSystem.prototype.addAttractor = function() {
-  var a = new Attractor(this.emitterLoc);
+  var a = new Attractor(this.loc);
   this.attractors = new List(a, this.attractors);
   return a;
+};
+
+ParticleSystem.prototype.addEmitter = function(prep) {
+  var e = new Emitter(this.loc, this, prep);
+  this.emitters = new List(e, this.emitters);
+  return e;
 };

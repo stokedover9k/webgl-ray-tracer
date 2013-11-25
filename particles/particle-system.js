@@ -49,26 +49,38 @@ function probEmission(td) {
   return 1 - Math.pow(1 - probFrameEmission, numFrames);
 }
 
+function prepParticle (p, e) {
+  p.lifespan = 5;
+  p.liveliness = 1;
+  p.loc = e.loc;
+  p.vel = new vec3(Math.random() * .3, Math.random() * .2, Math.random() * .25);
+  p.acc = ORIGIN;
+
+  return p;
+}
+
 CanvasParticles.setup = function () {
 
   var context = this;
   var gl = this.gl;
 
-  this.particleSystem = new ParticleSystem(ORIGIN, 100, new ParticleFactory(gl, this).build);
+  context.particleSystem = new ParticleSystem(ORIGIN, 100, new ParticleFactory(gl, context).build);
 
-  this.attractor = this.particleSystem.addAttractor();
+  context.attractor = context.particleSystem.addAttractor();
 
-  this.rootMarker = {};
-  this.rootMarker.vertices = createSphere(8,4);
-  this.rootMarker = this.prepObject(this.rootMarker, 'fs_phong');
+  context.emitter1 = context.particleSystem.addEmitter(prepParticle);
 
-  this.emitterMarker = {};
-  this.emitterMarker.vertices = createSphere(8,4);
-  this.emitterMarker = this.prepObject(this.emitterMarker, 'fs_phong');
+  context.rootMarker = {};
+  context.rootMarker.vertices = createSphere(8,4);
+  context.rootMarker = context.prepObject(context.rootMarker, 'fs_phong');
 
-  this.attractorMarker = {};
-  this.attractorMarker.vertices = createSphere(8,4);
-  this.attractorMarker = this.prepObject(this.attractorMarker, 'fs_phong');
+  context.emitterMarker = {};
+  context.emitterMarker.vertices = createSphere(8,4);
+  context.emitterMarker = context.prepObject(context.emitterMarker, 'fs_phong');
+
+  context.attractorMarker = {};
+  context.attractorMarker.vertices = createSphere(8,4);
+  context.attractorMarker = context.prepObject(context.attractorMarker, 'fs_phong');
 
   //=========== WORLD DISPLAY =======================
   var world = {};
@@ -80,7 +92,7 @@ CanvasParticles.setup = function () {
 
       // draw emitter
       mstack.push();
-        mstack.apply(MSScale(.02,.02,.02).then(MSTranslatev(context.particleSystem.emitterLoc)));
+        mstack.apply(MSScale(.02,.02,.02).then(MSTranslatev(context.emitter1.loc)));
         context.emitterMarker.matrix = mstack.top().arr();
         setUniforms(context.emitterMarker, makeMetallic([.1, .1, 0, 1]));
         drawObject(gl, context.emitterMarker);
@@ -116,11 +128,11 @@ CanvasParticles.update = function () {
   var DELTA_TIME = time - LAST_TIME;
   /////////////////////////////////
 
-  this.particleSystem.emitterLoc = new vec3(Math.sin(time) * .3, Math.cos(time*4) * .2, Math.sin((2 + time)*8) * .1);
+  this.emitter1.loc = new vec3(Math.sin(time) * .3, Math.cos(time*4) * .2, Math.sin((2 + time)*8) * .1);
   this.attractor.loc = new vec3(Math.sin(time), Math.sin(time/2) * .2, Math.cos(time/3));
 
   if( Math.random() <= probEmission(DELTA_TIME) )
-    this.particleSystem.addParticle();
+    this.emitter1.emit();
 
   this.particleSystem.update(DELTA_TIME);
 

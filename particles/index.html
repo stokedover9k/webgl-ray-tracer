@@ -4,6 +4,8 @@
   <script src=vecs.js></script>
   <script src=globals.js></script>
   <script src=models.js></script>
+  <script src=matrix-stack.js></script>
+  <script src=particles.js></script>
   <style>
   body {
     max-width: 60em;
@@ -28,6 +30,8 @@
 
 <div class="canvas-reel">
   <canvas id=CanvasParticles data-render=gl width=400 height=400 tabindex="1"></canvas>
+  <p>Mouse rotates the world.</p>
+  <p>Particles are emitted at the yellow marker and attracted toward the red marker. Additionally, live particles attract each other (and repel each other when they get too close). Gravitation between particles depends on their mass (size of each particle is indicative of its mass). Emission events have per-time-unit probability.</p>
 </div>
 
 <script id=fs_phong type=x-shader/x-fragment>
@@ -82,6 +86,6 @@
    }
 </script>
 
-<script src=particles.js></script>
+<script src=particle-system.js></script>
 
 </body>

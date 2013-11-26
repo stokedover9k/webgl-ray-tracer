@@ -81,6 +81,8 @@ Emitter.prototype.emit = function() {
 //============== PARTICLE SYSTEM ================//
 
 function ParticleSystem (loc, size, particleBuilder) {
+  this.PARTICLES_ATTRACT = true;
+
   this.loc = loc || ORIGIN;
 
   this.attractors = NIL;
@@ -100,25 +102,28 @@ ParticleSystem.prototype.update = function(td) {
 
   this.active = alive;
 
-  alive.foreach(function (p1) {
-    alive.foreach(function (p2) {
-      if( p1 == p2 ) return;
+  // mutual gravitation between particles
+  if( sys.PARTICLES_ATTRACT ) {
+    console.log("y");
+    alive.foreach(function (p1) {
+      alive.foreach(function (p2) {
+        if( p1 == p2 ) return;
 
-      var dif = p2.loc.minus(p1.loc);
-      var r2 = dif.dot(dif);
+        var dif = p2.loc.minus(p1.loc);
+        var r2 = dif.dot(dif);
 
-      // hack: without this, when particles are too close, they shoot frantically off the screen.
-      r2 += p1.mass + p2.mass;
+        // hack: without this, when particles are too close, they shoot frantically off the screen.
+        r2 += p1.mass + p2.mass;
 
-      // if too close, repel
-      if( r2 <= (p1.mass + p2.mass) * 2)
-        p1.applyForce(dif.normalized().scale(- 3 * p1.mass * p2.mass / r2));
-      // otherwise, attract
-      else
-        p1.applyForce(dif.normalized().scale(p1.mass * p2.mass / r2));
+        // if too close, repel
+        if( r2 <= (p1.mass + p2.mass) * 2)
+          p1.applyForce(dif.normalized().scale(- 3 * p1.mass * p2.mass / r2));
+        // otherwise, attract
+        else
+          p1.applyForce(dif.normalized().scale(p1.mass * p2.mass / r2));
+      });
     });
-
-  });
+  }
 
   alive.foreach(function (p) {
     sys.attractors.foreach(function (a) {
@@ -138,24 +143,6 @@ ParticleSystem.prototype.display = function() {
   this.active.foreach(function (p) {
     p.display();
   });
-};
-
-ParticleSystem.prototype.addParticle = function() {
-  var p;
-  if( this.particlePool == NIL )
-    p = this.particleBuilder();
-  else {
-    p = this.particlePool.val;
-    this.particlePool = this.particlePool.tail;
-  }
-
-  p.lifespan = 5;
-  p.liveliness = 1;
-  p.loc = this.loc;
-  p.vel = new vec3(Math.random() * .3, Math.random() * .2, Math.random() * .25);
-  p.acc = ORIGIN;
-
-  this.active = new List(p, this.active);
 };
 
 ParticleSystem.prototype.addAttractor = function() {

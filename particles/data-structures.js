@@ -17,6 +17,10 @@ function ListFill (num, filling) {
   return list;
 }
 
+List.prototype.prepend = function(v) {
+  return new List(v, this);
+};
+
 List.prototype.filter = function(pred) {
   if( this == NIL )
     return NIL;

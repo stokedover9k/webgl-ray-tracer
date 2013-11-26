@@ -32,8 +32,9 @@
 
 <div class="canvas-reel">
   <canvas id=CanvasParticles data-render=gl width=400 height=400 tabindex="1"></canvas>
-  <p>Same as before, but with multiple emitters. Both emitters draw on the same system's particle pool and add to it as necessary.</p>
-  <p><a href="index4.html">Next.</a></p>
+  <p>Here, I turned off the interaction between particles, so they no longer gravitate toward or repel each other. With that, the system stabilizes (once it's built up) with around 900 particles at about 30 frames per second on my machine (see console).</p>
+  <p>The static attractors have their strength modulated with matching sine and cosine functions of time. Note that the controlled attractor still moves on the x-y plane in world coordinates (computed before rotation).</p>
+  <p>I find that I get the coolest results when I position the attractor somewhere on the screen and just let the system settle.</p>
 </div>
 
 <script id=fs_phong type=x-shader/x-fragment>
@@ -88,6 +89,6 @@
    }
 </script>
 
-<script src=particle-system3.js></script>
+<script src=particle-system4.js></script>
 
 </body>
